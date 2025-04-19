@@ -9,13 +9,13 @@ client = CheckpointClient(
     password="UserLoser228"
 )
 
-#client.export_policies_to_json("policies.json")
-#client.export_objects_to_json("objects.json")
+client.export_policies_to_json("policies.json")
+client.export_objects_to_json("objects.json")
 
 with open("objects.json", "r", encoding="utf-8") as f:
     all_objects = json.load(f)
 
 resolver = ObjectResolver(all_objects)
 
-uid = "96b71c65-16eb-4426-a6c9-20f5b711ef09"
+uid = "5af55bb9-0563-4c19-9046-a387a6cd419b"
 print(resolver.format(uid))
