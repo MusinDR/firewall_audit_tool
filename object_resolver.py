@@ -63,6 +63,16 @@ class ObjectResolver:
             )
             return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
 
+        if  obj_type == "network-feed":
+            obj_info = ", ".join(
+                f"{label}: {sub}"
+                for label, sub in [("Feed type", obj.get("feed-type")),
+                                   ("Feed URL", obj.get("feed-url")),
+                                   ("Update interval", obj.get("update-interval"))]
+                if sub
+            )
+            return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
+
         if  obj_type == "CpmiAnyObject":
             obj_info = ", ".join(
                 f"{label}: {value}"
@@ -79,7 +89,6 @@ class ObjectResolver:
                 if action
             )
             return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-
 
 
         if obj_type.startswith("service-"):
