@@ -10,156 +10,140 @@ class ObjectResolver:
         return self.uid_map.get(uid)
 
     def format(self, uid: str) -> str:
+        if not isinstance(uid, str):
+            return f"[Invalid UID type: expected str, got {type(uid).__name__}]"
         obj = self.get(uid)
         if not obj:
             return f"[Unknown UID: {uid}]"
 
         obj_type = obj.get("type", "unknown")
-        name = obj.get("name", "unnamed")
+        formatter = self._formatters().get(obj_type, self.format_default)
+        return formatter(obj)
 
-        if  obj_type == "host":
+    def _formatters(self):
+        return {
+            "host": self.format_host,
+            "network": self.format_network,
+            "dns-domain": self.format_dns,
+            "network-feed": self.format_feed,
+            "access-role": self.format_access_role,
+            "group": lambda obj: self.format_group(obj["uid"]),
+            "service-group": lambda obj: self.format_group(obj["uid"]),
+            "group-with-exclusion": self.format_exclusion_group,
+            "time": self.format_time,
+            "CpmiAnyObject": self.format_cp_obj,
+            **{k: self.format_service for k in [
+                "service-tcp", "service-udp", "service-icmp",
+                "service-dce-rpc", "service-gtp", "service-other",
+                "service-rpc", "service-sctp"]},
+        }
+
+
+    def build_attributes(self, obj, fields: list[tuple[str, str]]) -> str:
+        attributes = [(label, obj.get(key)) for label, key in fields if obj.get(key)]
+        return ", ".join(f"{label}: {value}" for label, value in attributes)
+
+    def format_default(self, obj):
+        return f"{obj.get('name', 'unnamed')} ({obj.get('type', 'unknown')})"
+
+    # HOSTS
+    def format_host(self, obj):
+        obj_info = self.build_attributes(obj, [
+            ("IPv4", "ipv4-address"),
+            ("IPv6", "ipv6-address")
+        ])
+        return f"{obj['name']} (Host{', ' + obj_info if obj_info else ''})"
+
+    #NETWORKS
+    def format_network(self, obj):
+        obj_info = ", ".join(
+            f"{label}: {subnet}/{mask}"
+            for label, subnet, mask in [
+                ("IPv4 Subnet", obj.get("subnet4"), obj.get("mask-length4")),
+                ("IPv6 Subnet", obj.get("subnet6"), obj.get("mask-length6"))]
+            if (subnet and mask)
+        )
+        return f"{obj['name']} (Network{', ' + obj_info if obj_info else ''})"
+
+    #DNS-DOMAIN
+    def format_dns(self, obj):
+        obj_info = self.build_attributes(obj, [
+            ("Sub Domain", "is-sub-domain"),
+        ])
+        return f"{obj['name']} (DNS Domain{', ' + obj_info if obj_info else ''})"
+
+    #NETWORK FEED
+    def format_feed(self, obj):
+        obj_info = self.build_attributes(obj, [
+            ("Feed type", "feed-type"),
+            ("Feed URL", "feed-url"),
+            ("Update interval", "update-interval")
+        ])
+        return f"{obj['name']} (Network Feed{', ' + obj_info if obj_info else ''})"
+
+    #ACCESS ROLE
+    def format_access_role(self, obj):
+        obj_info = ", ".join(
+            f"{label}: {value}" for label, value in [
+                ("Allowed Networks", self.list_parser(obj, "networks")),
+                ("Machines", self.list_parser(obj, "machines")),
+                ("Users", self.list_parser(obj, "users")),
+                ("Allowed RA Clients", (obj.get("remote-access-client") or {}).get("name"))
+            ] if value
+        )
+        return f"{obj['name']} (access-role{', ' + obj_info if obj_info else ''})"
+
+    #TIME
+    def format_time(self, obj):
+        start = obj.get("start")
+        end = obj.get("end")
+        obj_info = ", ".join(
+            f"{label}: {value}" for label, value in [
+                ("Start now", obj.get("start-now")),
+                ("Start at", f"{start.get('date')} {start.get('time')}" if not obj.get("start-now") else None),
+                ("Never ends", obj.get("end-never")),
+                ("Ends at", f"{end.get('date')} {end.get('time')}" if not obj.get("end-never") else None)
+            ] if value
+        )
+        return f"{obj['name']} (time{', ' + obj_info if obj_info else ''})"
+
+    #EXCLUSION GROUP
+    def format_exclusion_group(self, obj):
+        obj_include = obj.get("include", {})
+        obj_exclude = obj.get("except", {})
+        include = self.format_group(obj_include.get("uid")) if obj_include.get("type") == "group" else obj_include.get("name")
+        exclude = self.format_group(obj_exclude.get("uid"))
+        return f"{obj['name']} (group-with-exclusion, Include: {include}, Exclude: {exclude})"
+
+    #SERVICES
+    def format_service(self, obj):
+        name = obj.get("name")
+        obj_type = obj.get("type")
+
+        if obj_type in {"service-tcp", "service-udp", "service-sctp"}:
+            obj_info = self.build_attributes(obj, [("Port", "port")])
+        elif obj_type == "service-icmp":
+            obj_info = self.build_attributes(obj, [("ICMP type", "icmp-type"), ("ICMP code", "icmp-code")])
+        elif obj_type == "service-dce-rpc":
+            obj_info = self.build_attributes(obj, [("Interface UUID", "interface-uuid")])
+        elif obj_type == "service-rpc":
+            obj_info = self.build_attributes(obj, [("Program number", "program-number")])
+        elif obj_type == "service-other":
+            obj_info = self.build_attributes(obj, [("IP Protocol", "ip-protocol")])
+        elif obj_type == "service-gtp":
             obj_info = ", ".join(
-                f"{label}: {addr}"
-                for label, addr in [("IPv4", obj.get("ipv4-address")),
-                                     ("IPv6", obj.get("ipv6-address"))]
-                if addr
-            )
-            return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
+            f"{label}: {value}" for label, value in [
+                ("Version", obj.get("version")),
+                ("Name", obj.get("interface-profile" or {}).get("profile").get("name"))])
+        else: obj_type = "Unknown service"
+        return f"{obj['name']} ({obj['type']}, {obj_info})"
 
-        if  obj_type == "network":
-            obj_info = ", ".join(
-                f"{label}: {subnet}/{mask}"
-                for label, subnet, mask in [("IPv4 Subnet", obj.get("subnet4"), obj.get("mask-length4")),
-                                            ("IPv6 Subnet", obj.get("subnet6"), obj.get("mask-length6"))]
-                if (subnet and mask)
-            )
-            return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
+    #INTERNAL OBJECTS
+    def format_cp_obj(self, obj):
+        return f"{obj['name']} (CpmiAnyObject)"
 
-        if  obj_type.endswith("address-range"):
-            obj_info = ", ".join(
-                f"{label}: {ip_first} - {ip_last}"
-                for label, ip_first, ip_last in [("IPv4 Range", obj.get("ipv4-address-first"), obj.get("ipv4-address-last")),
-                                                 ("IPv6 Range", obj.get("ipv6-address-first"), obj.get("ipv6-address-last"))]
-                if (ip_first and ip_last)
-            )
-            return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-
-        if  obj_type == "dns-domain":
-            obj_info = ", ".join(
-                f"{label}: {sub}"
-                for label, sub in [("FQDN", not obj.get("is-sub-domain"))]
-                if sub
-            )
-            return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-
-        if  obj_type == "access-role":
-            obj_info = ", ".join(
-                f"{label}: {value}"
-                for label, value in [("Allowed Networks", f"{self.list_parser(obj, "networks")}"),
-                                     ("Machines", f"{self.list_parser(obj, "machines")}"),
-                                     ("Users", f"{self.list_parser(obj, "users")}"),
-                                     ("Allowed RA Clients", obj.get("remote-access-client").get("name"))]
-                if value
-            )
-            return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-
-        if  obj_type == "network-feed":
-            obj_info = ", ".join(
-                f"{label}: {sub}"
-                for label, sub in [("Feed type", obj.get("feed-type")),
-                                   ("Feed URL", obj.get("feed-url")),
-                                   ("Update interval", obj.get("update-interval"))]
-                if sub
-            )
-            return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-
-        if  obj_type == "CpmiAnyObject":
-            obj_info = ", ".join(
-                f"{label}: {value}"
-                for label, value in []
-                if value
-            )
-            return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-
-        if  obj_type == "group-with-exclusion":
-            obj_info = ", ".join(
-                f"{label}: {action}"
-                for label, action in [("Include",  self.format_group(obj.get("include").get("uid")) if (obj.get("include").get("type")).startswith("group") else obj.get("include").get("name")),
-                                      ("Exclude",  self.format_group(obj.get("except").get("uid")))]
-                if action
-            )
-            return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-
-        if obj_type in {"group", "service-group", "user-group"}:
-            return self.format_group(uid)
-
-        if obj_type.startswith("service-"):
-            if obj_type in {"service-tcp", "service-udp"}:
-                obj_info = ", ".join(
-                    f"{label}: {info}"
-                    for label, info in [("Port", obj.get("port"))]
-                    if info
-                )
-                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-            if obj_type == "service-icmp":
-                obj_info = ", ".join(
-                    f"{label}: {info}"
-                    for label, info in [("ICMP type", obj.get("icmp-type")),
-                                        ("ICMP code", obj.get("icmp-code"))]
-                    if info
-                )
-                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-            if obj_type == "service-dce-rpc":
-                obj_info = ", ".join(
-                    f"{label}: {info}"
-                    for label, info in [("Interface UUID", obj.get("interface-uuid"))]
-                    if info
-                )
-                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-            if obj_type == "service-gtp":
-                obj_info = ", ".join(
-                    f"{label}: {info}"
-                    for label, info in [("Version", obj.get("version")),
-                                       ("Name", obj.get("interface-profile").get("profile").get("name"))]
-                    if info
-                )
-                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-            if obj_type == "service-other":
-                obj_info = ", ".join(
-                    f"{label}: {info}"
-                    for label, info in [("IP Protocol", obj.get("ip-protocol"))]
-                    if info
-                )
-                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-            if obj_type == "service-rpc":
-                obj_info = ", ".join(
-                    f"{label}: {info}"
-                    for label, info in [("Program number", obj.get("program-number"))]
-                    if info
-                )
-                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-            if obj_type == "service-sctp":
-                obj_info = ", ".join(
-                    f"{label}: {info}"
-                    for label, info in [("Port", obj.get("port"))]
-                    if info
-                )
-                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-
-        if  obj_type == "network-feed":
-            obj_info = ", ".join(
-                f"{label}: {sub}"
-                for label, sub in [("Feed type", obj.get("feed-type")),
-                                   ("Feed URL", obj.get("feed-url")),
-                                   ("Update interval", obj.get("update-interval"))]
-                if sub
-            )
-            return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
-
-        return f"{name} ({obj_type})"
-
+    #GROUPS
     def format_group(self, uid: str) -> str:
-
         obj = self.get(uid)
         if not obj:
             return f"[Group not found: {uid}]"
@@ -173,32 +157,25 @@ class ObjectResolver:
 
         formatted_members = []
         for member in members:
-            # Поддержка как dict, так и str
-            if isinstance(member, dict):
-                mid = member.get("uid")
-            elif isinstance(member, str):
-                mid = member
-            else:
+            mid = member.get("uid") if isinstance(member, dict) else member if isinstance(member, str) else None
+            if not mid:
                 formatted_members.append("[Invalid member format]")
                 continue
-
-            member_obj = self.get(mid)
-            if not member_obj:
-                formatted_members.append(f"[Unknown UID: {mid}]")
-                continue
-
-            if member_obj.get("type") in {"group", "service-group"}:
-                formatted_members.append(self.format_group(mid))
-            else:
-                formatted_members.append(self.format(mid))
+            formatted_members.append(self.format(mid))
 
         return f"{name} ({obj_type}) = [{'; '.join(formatted_members)}]"
 
+
+
+    #CONVERT LIST INTO STRING
     def list_parser(self, obj, object_attr):
-        info = ", ".join(
-            f"{value}" if isinstance(value, str)
-            else f"{self.format(value.get("uid"))}" if (value.get("type") != "CpmiAnyObject")
-            else f"{value.get("name")} ({value.get("type")})"
-            for value in [obj.get(f"{object_attr}")]
-            )
-        return info
+        entries = obj.get(object_attr)
+        if isinstance(entries, str):
+            return entries
+        if not isinstance(entries, list):
+            return str(entries)
+
+        return ", ".join(
+            self.format(entry.get("uid")) if isinstance(entry, dict) else str(entry)
+            for entry in entries if entry
+        )
