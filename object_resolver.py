@@ -90,13 +90,71 @@ class ObjectResolver:
             )
             return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
 
-
-        if obj_type.startswith("service-"):
-            port = obj.get("port") or obj.get("port-range") or "-"
-            return f"{name} ({obj_type}, port={port})"
-
         if obj_type in {"group", "service-group", "user-group"}:
             return self.format_group(uid)
+
+        if obj_type.startswith("service-"):
+            if obj_type in {"service-tcp", "service-udp"}:
+                obj_info = ", ".join(
+                    f"{label}: {info}"
+                    for label, info in [("Port", obj.get("port"))]
+                    if info
+                )
+                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
+            if obj_type == "service-icmp":
+                obj_info = ", ".join(
+                    f"{label}: {info}"
+                    for label, info in [("ICMP type", obj.get("icmp-type")),
+                                        ("ICMP code", obj.get("icmp-code"))]
+                    if info
+                )
+                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
+            if obj_type == "service-dce-rpc":
+                obj_info = ", ".join(
+                    f"{label}: {info}"
+                    for label, info in [("Interface UUID", obj.get("interface-uuid"))]
+                    if info
+                )
+                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
+            if obj_type == "service-gtp":
+                obj_info = ", ".join(
+                    f"{label}: {info}"
+                    for label, info in [("Version", obj.get("version")),
+                                       ("Name", obj.get("interface-profile").get("profile").get("name"))]
+                    if info
+                )
+                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
+            if obj_type == "service-other":
+                obj_info = ", ".join(
+                    f"{label}: {info}"
+                    for label, info in [("IP Protocol", obj.get("ip-protocol"))]
+                    if info
+                )
+                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
+            if obj_type == "service-rpc":
+                obj_info = ", ".join(
+                    f"{label}: {info}"
+                    for label, info in [("Program number", obj.get("program-number"))]
+                    if info
+                )
+                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
+            if obj_type == "service-sctp":
+                obj_info = ", ".join(
+                    f"{label}: {info}"
+                    for label, info in [("Port", obj.get("port"))]
+                    if info
+                )
+                return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
+
+        if  obj_type == "network-feed":
+            obj_info = ", ".join(
+                f"{label}: {sub}"
+                for label, sub in [("Feed type", obj.get("feed-type")),
+                                   ("Feed URL", obj.get("feed-url")),
+                                   ("Update interval", obj.get("update-interval"))]
+                if sub
+            )
+            return f"{name} ({obj_type}{', ' + obj_info if obj_info else ''})"
 
         return f"{name} ({obj_type})"
 

@@ -17,5 +17,5 @@ with open("objects.json", "r", encoding="utf-8") as f:
 
 resolver = ObjectResolver(all_objects)
 
-uid = "8dae972c-3dcd-4d0b-bfb9-87b3c045b71a"
+uid = "d0eb14b0-fa36-4955-a3db-1896fb2089d9"
 print(resolver.format(uid))
