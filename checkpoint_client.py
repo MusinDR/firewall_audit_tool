@@ -27,6 +27,7 @@ class CheckpointClient:
 
     def get_all_policies(self) -> dict:
         policies_data = {}
+        objects_data  = {}
 
         layers_resp = self.client.api_call("show-access-layers", {"details-level": "standard"})
         layers = layers_resp.data.get("access-layers", [])
@@ -39,25 +40,31 @@ class CheckpointClient:
             offset = 0
             limit = 50
             total = 1
-            all_rules = []
+            rules_list = []
+            objects_list = []
 
             while offset < total:
                 rulebase_resp = self.client.api_call("show-access-rulebase", {
-                    "name": layer_uid,  # ← важно!
+                    "name": layer_uid,
                     "offset": offset,
                     "limit": limit,
                     "details-level": "full"
                 })
 
-                rulebase = rulebase_resp.data.get("rulebase", [])
+                rules_rulebase = rulebase_resp.data.get("rulebase", [])
+                objects_rulebase = rulebase_resp.data.get("objects-dictionary", [])
+
                 total = rulebase_resp.data.get("total", 0)
-                all_rules.extend(rulebase)
+
+                rules_list.extend(rules_rulebase)
+                objects_list.extend(objects_rulebase)
 
                 offset += limit
 
-            policies_data[layer_name] = all_rules
+            policies_data[layer_name] = rules_list
+            objects_data[layer_name] = objects_list
 
-        return policies_data
+        return policies_data, objects_data
 
     def get_all_objects(self) -> list:
         print("📦 Получаем список всех объектов...")
@@ -75,7 +82,7 @@ class CheckpointClient:
             })
 
             if not resp.success:
-                print("❌ Ошибка при получении объектов:", resp.error_message())
+                print("❌ Ошибка при получении объектов:", resp.error_message)
                 break
 
             page = resp.data.get("objects", [])
@@ -88,17 +95,21 @@ class CheckpointClient:
         print(f"✅ Всего объектов: {len(all_objects)}")
         return all_objects
 
-    def export_policies_to_json(self, filepath: str):
+    def export_policies_to_json(self, rules_path: str, objects_path: str):
         if not self.login():
             return
 
         try:
-            policies = self.get_all_policies()
+            policies, objects = self.get_all_policies()
 
-            with open(filepath, "w", encoding="utf-8") as f:
+            with open(rules_path, "w", encoding="utf-8") as f:
                 json.dump(policies, f, indent=2, ensure_ascii=False)
+            print(f"✅ Экспорт завершён. Файл: {rules_path}")
 
-            print(f"✅ Экспорт завершён. Файл: {filepath}")
+            with open(objects_path, "w", encoding="utf-8") as f:
+                json.dump(objects, f, indent=2, ensure_ascii=False)
+            print(f"✅ Экспорт завершён. Файл: {objects_path}")
+
         finally:
             self.logout()
 

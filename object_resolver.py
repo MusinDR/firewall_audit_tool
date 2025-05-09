@@ -1,18 +1,31 @@
 # object_resolver.py
 
 class ObjectResolver:
-    def __init__(self, objects: list):
-        self.uid_map = {
-            obj["uid"]: obj for obj in objects if "uid" in obj
+    def __init__(self, all_objects: list, dict_objects: list):
+        self.uid_map_obj = {
+            obj["uid"]: obj for obj in all_objects if "uid" in obj
+        }
+
+        flat_dict_objects = []
+        for layer_objects in dict_objects.values():
+            flat_dict_objects.extend(layer_objects)
+        self.uid_map_dict = {
+            obj["uid"]: obj for obj in flat_dict_objects if "uid" in obj
         }
 
     def get(self, uid: str) -> dict | None:
-        return self.uid_map.get(uid)
+        return self.uid_map_obj.get(uid)
+
+    def get_dict(self, uid: str) -> dict | None:
+        return self.uid_map_dict.get(uid)
 
     def format(self, uid: str) -> str:
         if not isinstance(uid, str):
             return f"[Invalid UID type: expected str, got {type(uid).__name__}]"
+
         obj = self.get(uid)
+        if not obj:
+            obj = self.get_dict(uid)
         if not obj:
             return f"[Unknown UID: {uid}]"
 
@@ -31,6 +44,7 @@ class ObjectResolver:
             "service-group": lambda obj: self.format_group(obj["uid"]),
             "group-with-exclusion": self.format_exclusion_group,
             "time": self.format_time,
+            "track": self.format_track,
             "CpmiAnyObject": self.format_cp_obj,
             **{k: self.format_service for k in [
                 "service-tcp", "service-udp", "service-icmp",
@@ -43,10 +57,11 @@ class ObjectResolver:
         attributes = [(label, obj.get(key)) for label, key in fields if obj.get(key)]
         return ", ".join(f"{label}: {value}" for label, value in attributes)
 
+    #EXCLUSION OBJECTS
     def format_default(self, obj):
         return f"{obj.get('name', 'unnamed')} ({obj.get('type', 'unknown')})"
 
-    # HOSTS
+    #HOSTS
     def format_host(self, obj):
         obj_info = self.build_attributes(obj, [
             ("IPv4", "ipv4-address"),
@@ -134,8 +149,8 @@ class ObjectResolver:
             obj_info = ", ".join(
             f"{label}: {value}" for label, value in [
                 ("Version", obj.get("version")),
-                ("Name", obj.get("interface-profile" or {}).get("profile").get("name"))])
-        else: obj_type = "Unknown service"
+                ("Name", (obj.get("interface-profile") or {}).get("profile").get("name"))])
+        else: obj_type = "Unknown service"; obj_info = "-"
         return f"{obj['name']} ({obj['type']}, {obj_info})"
 
     #INTERNAL OBJECTS
@@ -165,7 +180,9 @@ class ObjectResolver:
 
         return f"{name} ({obj_type}) = [{'; '.join(formatted_members)}]"
 
-
+    #TRACK
+    def format_track(self, obj):
+        return f"{obj['type']} (Track)"
 
     #CONVERT LIST INTO STRING
     def list_parser(self, obj, object_attr):
@@ -179,3 +196,10 @@ class ObjectResolver:
             self.format(entry.get("uid")) if isinstance(entry, dict) else str(entry)
             for entry in entries if entry
         )
+
+    #INNER LAYER
+    def get_layer_name_by_uid(self, uid: str) -> str | None:
+        for obj in self.uid_map_dict.values():
+            if obj.get("type") in {"access-layer", "inline-layer", "Global"} and obj.get("uid") == uid:
+                return obj.get("name")
+        return None
