@@ -48,6 +48,7 @@ class CheckpointClient:
                     "name": layer_uid,
                     "offset": offset,
                     "limit": limit,
+                    "show-hits": True,
                     "details-level": "full"
                 })
 

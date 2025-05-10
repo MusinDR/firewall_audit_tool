@@ -10,7 +10,7 @@ client = CheckpointClient(
     password="UserLoser228"
 )
 
-#client.export_policies_to_json("policies.json", "objects-dictionary.json")
+client.export_policies_to_json("policies.json", "objects-dictionary.json")
 #client.export_objects_to_json("all_objects.json")
 
 with open("all_objects.json", "r", encoding="utf-8") as f:
@@ -36,4 +36,4 @@ resolver = ObjectResolver(all_objects, objects_dictionary)
 #print(resolver.format(uid))
 
 exporter = CSVExporter(policies, resolver)
-exporter.export_to_csv("rules_export.csv")
+exporter.export_to_csv("rules_export.csv", "New_Access Layer")

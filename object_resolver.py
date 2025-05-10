@@ -38,6 +38,8 @@ class ObjectResolver:
             "host": self.format_host,
             "network": self.format_network,
             "dns-domain": self.format_dns,
+            "address-range": self.format_range,
+            "multicat-address-range": self.format_multi_range,
             "network-feed": self.format_feed,
             "access-role": self.format_access_role,
             "group": lambda obj: self.format_group(obj["uid"]),
@@ -87,6 +89,28 @@ class ObjectResolver:
         ])
         return f"{obj['name']} (DNS Domain{', ' + obj_info if obj_info else ''})"
 
+    #RANGE
+    def format_range(self, obj):
+        obj_info = ", ".join(
+            f"{label}: {ip_first} - {ip_last}"
+            for label, ip_first, ip_last in
+            [("IPv4 Range", obj.get("ipv4-address-first"), obj.get("ipv4-address-last")),
+             ("IPv6 Range", obj.get("ipv6-address-first"), obj.get("ipv6-address-last"))]
+            if (ip_first and ip_last)
+        )
+        return f"{obj['name']} (address-range{', ' + obj_info if obj_info else ''})"
+
+    #MULTICAST RANGE
+    def format_multi_range(self, obj):
+        obj_info = ", ".join(
+            f"{label}: {ip_first} - {ip_last}"
+            for label, ip_first, ip_last in
+            [("IPv4 Range", obj.get("ipv4-address-first"), obj.get("ipv4-address-last")),
+             ("IPv6 Range", obj.get("ipv6-address-first"), obj.get("ipv6-address-last"))]
+            if (ip_first and ip_last)
+        )
+        return f"{obj['name']} (multicast-address-range{', ' + obj_info if obj_info else ''})"
+
     #NETWORK FEED
     def format_feed(self, obj):
         obj_info = self.build_attributes(obj, [
@@ -94,7 +118,7 @@ class ObjectResolver:
             ("Feed URL", "feed-url"),
             ("Update interval", "update-interval")
         ])
-        return f"{obj['name']} (Network Feed{', ' + obj_info if obj_info else ''})"
+        return f"{obj['name']} (network-feed{', ' + obj_info if obj_info else ''})"
 
     #ACCESS ROLE
     def format_access_role(self, obj):
