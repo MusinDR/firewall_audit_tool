@@ -1,6 +1,7 @@
 from checkpoint_client import CheckpointClient
 from object_resolver import ObjectResolver
 from csv_exporter import CSVExporter
+from audit_engine import RuleAuditor
 import json
 
 
@@ -35,5 +36,8 @@ resolver = ObjectResolver(all_objects, objects_dictionary)
 #uid = "598ead32-aa42-4615-90ed-f51a5928d41d"
 #print(resolver.format(uid))
 
-exporter = CSVExporter(policies, resolver)
-exporter.export_to_csv("rules_export.csv", "New_Access Layer")
+#exporter = CSVExporter(policies, resolver)
+#exporter.export_to_csv("rules_export.csv", "Network")
+
+auditor = RuleAuditor(policies, resolver)
+findings = auditor.run_audit(selected_layer="Network")  # или None для всех слоёв
