@@ -14,15 +14,15 @@ class CSVExporter:
             # Заголовки CSV
             writer.writerow([
                 "Layer",
-                "Hits",
                 "Rule #",
+                "Enabled",
+                "Hits",
                 "Name",
                 "Source",
                 "Destination",
                 "Services",
                 "Action",
                 "Track",
-                "Enabled",
                 "Comments"
             ])
 
@@ -49,6 +49,7 @@ class CSVExporter:
             writer.writerow([
                 display_layer,
                 rule_num,
+                rule.get("enabled"),
                 rule.get("hits").get("value"),
                 rule.get("name", ""),
                 self._format_uids(rule.get("source")),
@@ -56,7 +57,6 @@ class CSVExporter:
                 self._format_uids(rule.get("service")),
                 self._format_uid(rule.get("action")),
                 self._format_uid(track_type),
-                rule.get("enabled"),
                 str(rule.get("comments") or "")
             ])
 
