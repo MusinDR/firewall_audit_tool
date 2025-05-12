@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QTabWidget,
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
     QPushButton, QTableWidget, QTableWidgetItem,
     QLabel, QTextEdit, QMessageBox, QHeaderView, QSplitter, QComboBox, QFileDialog
 )
@@ -49,14 +49,18 @@ class MainWindow(QMainWindow):
     def init_rules_tab(self):
         layout = QVBoxLayout()
 
-        self.fetch_button = QPushButton("Выгрузить политики с МЭ")
+        self.fetch_button = QPushButton("📥 Выгрузить политики с МЭ")
         self.fetch_button.clicked.connect(self.fetch_from_firewall)
 
-        self.load_button = QPushButton("Показать слой")
+        self.load_button = QPushButton("📊 Показать слой")
         self.load_button.clicked.connect(self.export_and_load_selected_layer)
+        self.load_button.setEnabled(False)
 
-        self.export_button = QPushButton("Экспорт в CSV...")
+        self.export_button = QPushButton("💾 Экспорт в CSV...")
         self.export_button.clicked.connect(self.export_table_to_csv)
+        self.export_button.setEnabled(False)
+        self.export_button.setFixedHeight(28)
+        self.export_button.setMaximumWidth(150)
 
         self.rules_table = QTableWidget()
         self.rules_table.setColumnCount(10)
@@ -68,12 +72,21 @@ class MainWindow(QMainWindow):
         self.rules_table.horizontalHeader().setStretchLastSection(True)
         self.rules_table.setWordWrap(True)
 
-        layout.addWidget(QLabel("Слой политики:"))
-        layout.addWidget(self.layer_selector)
+        control_layout = QHBoxLayout()
+        control_layout.addWidget(QLabel("Слой политики:"))
+        control_layout.addWidget(self.layer_selector)
+        control_layout.addWidget(self.load_button)
+        control_layout.addStretch()
+
         layout.addWidget(self.fetch_button)
-        layout.addWidget(self.load_button)
-        layout.addWidget(self.export_button)
+        layout.addLayout(control_layout)
         layout.addWidget(self.rules_table)
+
+        export_layout = QHBoxLayout()
+        export_layout.addStretch()
+        export_layout.addWidget(self.export_button)
+        layout.addLayout(export_layout)
+
         self.rules_tab.setLayout(layout)
 
     def init_audit_tab(self):
@@ -96,6 +109,11 @@ class MainWindow(QMainWindow):
 
             self.print_log("✅ Данные успешно выгружены")
             self.populate_layers()
+
+            # Активируем действия
+            self.load_button.setEnabled(True)
+            self.export_button.setEnabled(True)
+
         except Exception as e:
             self.print_log(f"❌ Ошибка при выгрузке: {e}")
             QMessageBox.critical(self, "Ошибка", f"Ошибка при выгрузке с МЭ:\n{e}")
@@ -186,4 +204,3 @@ class MainWindow(QMainWindow):
     def print_log(self, message: str):
         self.console_output.append(message)
         print(message)
-
