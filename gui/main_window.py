@@ -1,11 +1,12 @@
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QTabWidget,
     QPushButton, QTableWidget, QTableWidgetItem,
-    QLabel, QTextEdit, QMessageBox, QHeaderView, QSplitter, QComboBox
+    QLabel, QTextEdit, QMessageBox, QHeaderView, QSplitter, QComboBox, QFileDialog
 )
 from PyQt6.QtCore import Qt
 import csv
 import os
+import json
 
 from checkpoint_client import CheckpointClient
 from csv_exporter import CSVExporter
@@ -45,13 +46,17 @@ class MainWindow(QMainWindow):
         layout.addWidget(splitter)
         self.setCentralWidget(container)
 
-        self.populate_layers()
-
     def init_rules_tab(self):
         layout = QVBoxLayout()
 
-        self.load_button = QPushButton("Загрузить политики")
-        self.load_button.clicked.connect(self.export_and_load_policies)
+        self.fetch_button = QPushButton("Выгрузить политики с МЭ")
+        self.fetch_button.clicked.connect(self.fetch_from_firewall)
+
+        self.load_button = QPushButton("Показать слой")
+        self.load_button.clicked.connect(self.export_and_load_selected_layer)
+
+        self.export_button = QPushButton("Экспорт в CSV...")
+        self.export_button.clicked.connect(self.export_table_to_csv)
 
         self.rules_table = QTableWidget()
         self.rules_table.setColumnCount(10)
@@ -65,7 +70,9 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(QLabel("Слой политики:"))
         layout.addWidget(self.layer_selector)
+        layout.addWidget(self.fetch_button)
         layout.addWidget(self.load_button)
+        layout.addWidget(self.export_button)
         layout.addWidget(self.rules_table)
         self.rules_tab.setLayout(layout)
 
@@ -74,42 +81,62 @@ class MainWindow(QMainWindow):
         layout.addWidget(QLabel("Результаты аудита появятся здесь."))
         self.audit_tab.setLayout(layout)
 
+    def fetch_from_firewall(self):
+        try:
+            self.print_log("📡 Выгружаем политики и объекты с МЭ...")
+            policies, dict_objects = self.client.get_all_policies()
+            all_objects = self.client.get_all_objects()
+
+            with open("policies.json", "w", encoding="utf-8") as f:
+                json.dump(policies, f, indent=2, ensure_ascii=False)
+            with open("objects-dictionary.json", "w", encoding="utf-8") as f:
+                json.dump(dict_objects, f, indent=2, ensure_ascii=False)
+            with open("all_objects.json", "w", encoding="utf-8") as f:
+                json.dump(all_objects, f, indent=2, ensure_ascii=False)
+
+            self.print_log("✅ Данные успешно выгружены")
+            self.populate_layers()
+        except Exception as e:
+            self.print_log(f"❌ Ошибка при выгрузке: {e}")
+            QMessageBox.critical(self, "Ошибка", f"Ошибка при выгрузке с МЭ:\n{e}")
+
     def populate_layers(self):
         try:
-            self.print_log("🔍 Загружаем список слоёв политики...")
-            layers_resp = self.client.client.api_call("show-access-layers", {"details-level": "standard"})
-            layers = layers_resp.data.get("access-layers", [])
+            if not os.path.exists("policies.json"):
+                self.print_log("❗ Сначала необходимо выгрузить политики с МЭ")
+                return
+            with open("policies.json", encoding="utf-8") as f:
+                policies = json.load(f)
             self.layer_selector.clear()
-            for layer in layers:
-                self.layer_selector.addItem(layer["name"])
-            self.print_log(f"✅ Загружено слоёв: {len(layers)}")
+            for layer_name in policies.keys():
+                self.layer_selector.addItem(layer_name)
+            self.print_log("✅ Слои загружены из policies.json")
         except Exception as e:
-            self.print_log(f"❌ Ошибка при получении слоёв: {e}")
+            self.print_log(f"❌ Ошибка при загрузке слоёв: {e}")
 
-    def export_and_load_policies(self):
+    def export_and_load_selected_layer(self):
         try:
             selected_layer_name = self.layer_selector.currentText()
             if not selected_layer_name:
                 QMessageBox.warning(self, "Выбор слоя", "Пожалуйста, выберите слой политики.")
                 return
 
-            self.print_log(f"📦 Загружаем слой: {selected_layer_name}")
-
-            policies, dict_objects = self.client.get_all_policies()
-            all_objects = self.client.get_all_objects()
+            with open("policies.json", encoding="utf-8") as f:
+                policies = json.load(f)
+            with open("objects-dictionary.json", encoding="utf-8") as f:
+                dict_objects = json.load(f)
+            with open("all_objects.json", encoding="utf-8") as f:
+                all_objects = json.load(f)
 
             resolver = ObjectResolver(all_objects, dict_objects)
             exporter = CSVExporter(policies, resolver)
             exporter.export_to_csv("rules_export.csv", selected_layer_name)
 
-            self.print_log("✅ Выгрузка завершена: rules_export.csv")
-
             self.load_rules_from_csv("rules_export.csv")
-            self.print_log("📊 Таблица правил обновлена")
-
+            self.print_log(f"📊 Таблица правил обновлена для слоя: {selected_layer_name}")
         except Exception as e:
-            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить политики:\n{e}")
-            self.print_log(f"❌ Ошибка при загрузке: {e}")
+            self.print_log(f"❌ Ошибка при отображении слоя: {e}")
+            QMessageBox.critical(self, "Ошибка", f"Ошибка при отображении:\n{e}")
 
     def load_rules_from_csv(self, filepath: str):
         if not os.path.exists(filepath):
@@ -133,6 +160,28 @@ class MainWindow(QMainWindow):
                     self.rules_table.setItem(row_idx, col_idx, item)
 
         self.rules_table.resizeRowsToContents()
+
+    def export_table_to_csv(self):
+        filepath, _ = QFileDialog.getSaveFileName(self, "Сохранить как CSV", "", "CSV Files (*.csv)")
+        if not filepath:
+            return
+
+        try:
+            with open(filepath, mode="w", newline="", encoding="utf-8") as file:
+                writer = csv.writer(file)
+                headers = [self.rules_table.horizontalHeaderItem(i).text() for i in range(self.rules_table.columnCount())]
+                writer.writerow(headers)
+                for row in range(self.rules_table.rowCount()):
+                    row_data = [
+                        self.rules_table.item(row, col).text() if self.rules_table.item(row, col) else ""
+                        for col in range(self.rules_table.columnCount())
+                    ]
+                    writer.writerow(row_data)
+
+            self.print_log(f"✅ Таблица экспортирована в {filepath}")
+        except Exception as e:
+            self.print_log(f"❌ Ошибка при экспорте: {e}")
+            QMessageBox.critical(self, "Ошибка", f"Ошибка при экспорте в CSV:\n{e}")
 
     def print_log(self, message: str):
         self.console_output.append(message)
