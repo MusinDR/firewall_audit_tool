@@ -14,6 +14,7 @@ class CSVExporter:
             # Заголовки CSV
             writer.writerow([
                 "Layer",
+                "Section",
                 "Rule #",
                 "Enabled",
                 "Hits",
@@ -22,7 +23,9 @@ class CSVExporter:
                 "Destination",
                 "Services",
                 "Action",
+                "Time",
                 "Track",
+                "Install On",
                 "Comments"
             ])
 
@@ -36,31 +39,50 @@ class CSVExporter:
                 for layer_name, rules in self.policies.items():
                     self._write_rules(writer, rules, layer_name)
 
-    def _write_rules(self, writer, rules, layer_name, parent_prefix="", display_layer=None):
+    def _write_rules(self, writer, rules, layer_name, parent_prefix="", display_layer=None, section_name=""):
         display_layer = display_layer or layer_name
+        rule_index = 0
 
-        for index, rule in enumerate(rules, start=1):
-            rule_num = f"{parent_prefix}{index}"
+        for rule in rules:
+            if rule.get("type") == "access-section":
+                rule_index += 1
+                rule_num = f"{parent_prefix}{rule_index}"
+                current_section = rule.get("name", "[Без имени]")
 
-            # Получаем track.type с учётом разных возможных типов
+                # Рекурсивная обработка содержимого секции
+                self._write_rules(
+                    writer,
+                    rule.get("rulebase", []),
+                    layer_name=layer_name,
+                    parent_prefix=f"{rule_num}.",
+                    display_layer=display_layer,
+                    section_name=current_section
+                )
+                continue
+
+            rule_index += 1
+            rule_num = f"{parent_prefix}{rule_index}"
+
             track = rule.get("track")
             track_type = track.get("type") if isinstance(track, dict) else track
 
             writer.writerow([
                 display_layer,
+                section_name,
                 rule_num,
                 rule.get("enabled"),
-                rule.get("hits").get("value"),
+                rule.get("hits", {}).get("value"),
                 rule.get("name", ""),
                 self._format_uids(rule.get("source")),
                 self._format_uids(rule.get("destination")),
                 self._format_uids(rule.get("service")),
                 self._format_uid(rule.get("action")),
+                self._format_uids(rule.get("time")),
                 self._format_uid(track_type),
+                self._format_uids(rule.get("install-on")),
                 str(rule.get("comments") or "")
             ])
 
-            # Обработка inline-layer (вложенные правила)
             if "inline-layer" in rule:
                 nested_layer_uid = rule["inline-layer"]
                 nested_layer_name = self.resolver.get_layer_name_by_uid(nested_layer_uid)
@@ -70,16 +92,18 @@ class CSVExporter:
                     self._write_rules(
                         writer,
                         nested_rules,
-                        layer_name=layer_name,  # сохраняем текущий контекст
+                        layer_name=layer_name,
                         parent_prefix=f"{rule_num}.",
-                        display_layer=nested_layer_name  # отображаем имя вложенного слоя
+                        display_layer=nested_layer_name,
+                        section_name=section_name  # наследуем секцию
                     )
                 else:
                     writer.writerow([
                         nested_layer_name or nested_layer_uid,
                         f"{rule_num}.x",
+                        section_name,
                         "[Ошибка: нет данных для inline-layer]",
-                        "", "", "", "", "", "", ""
+                        "", "", "", "", "", "", "", "", ""
                     ])
 
     def _format_uids(self, items: list) -> str:

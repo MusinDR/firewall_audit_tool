@@ -130,19 +130,24 @@ class ObjectResolver:
                 ("Allowed RA Clients", (obj.get("remote-access-client") or {}).get("name"))
             ] if value
         )
-        return f"{obj['name']} (access-role{', ' + obj_info if obj_info else ''})"
+        return f"{obj['name']} (Access-role{', ' + obj_info if obj_info else ''})"
 
     #TIME
     def _format_time(self, obj):
-        start = obj.get("start")
-        end = obj.get("end")
+        start = obj.get("start", {})
+        end = obj.get("end", {})
+        recurrence = obj.get("recurrence", {})
+
         obj_info = ", ".join(
             f"{label}: {value}" for label, value in [
-                ("Start now", obj.get("start-now")),
+                ("Started immediately", obj.get("start-now")),
                 ("Start at", f"{start.get('date')} {start.get('time')}" if not obj.get("start-now") else None),
                 ("Never ends", obj.get("end-never")),
-                ("Ends at", f"{end.get('date')} {end.get('time')}" if not obj.get("end-never") else None)
-            ] if value
+                ("Ends at", f"{end.get('date')} {end.get('time')}" if not obj.get("end-never") else None),
+                ("Works on weekdays", recurrence.get("weekdays")),
+                ("Works in month", recurrence.get("month") if (recurrence.get("month") != "Any") else None),
+                ("Works in days", recurrence.get("days")),
+            ] if (value) not in (None, "", {}, [])
         )
         return f"{obj['name']} (time{', ' + obj_info if obj_info else ''})"
 

@@ -8,18 +8,27 @@ import urllib3
 
 class CheckpointClient:
 
-    def __init__(self, server: str, username: str, password: str):
+    def __init__(self, server: str, username: str, password: str, print_func=print):
         self.server = server
         self.username = username
         self.password = password
         self.client = APIClient(APIClientArgs(server=server))
+        self.print = print_func
 
     def login(self) -> bool:
-        if not self.client.login(self.username, self.password):
-            print("❌ Ошибка авторизации:", self.client.last_error_message())
+        try:
+            response = self.client.login(self.username, self.password)
+
+            if not getattr(response, "success", False):
+                print(f"❌ Ошибка авторизации: {getattr(response, 'error_message', 'Неизвестная ошибка')}")
+                return False
+
+            print("✅ Успешный вход")
+            return True
+
+        except Exception as e:
+            print(f"❌ Исключение при попытке входа: {e}")
             return False
-        print("✅ Успешный вход")
-        return True
 
     def logout(self):
         self.client.api_call("logout")

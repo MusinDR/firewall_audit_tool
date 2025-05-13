@@ -3,7 +3,8 @@ from PyQt6.QtWidgets import (
     QPushButton, QTableWidget, QTableWidgetItem,
     QLabel, QTextEdit, QMessageBox, QHeaderView, QSplitter, QComboBox, QFileDialog
 )
-from PyQt6.QtCore import Qt
+
+from PyQt6.QtCore import Qt, QThread
 import csv
 import os
 import json
@@ -11,7 +12,7 @@ import json
 from checkpoint_client import CheckpointClient
 from csv_exporter import CSVExporter
 from object_resolver import ObjectResolver
-
+from fetch_worker import FetchWorker
 
 class MainWindow(QMainWindow):
     def __init__(self, client: CheckpointClient):
@@ -96,23 +97,23 @@ class MainWindow(QMainWindow):
 
     def fetch_from_firewall(self):
         try:
-            self.print_log("📡 Выгружаем политики и объекты с МЭ...")
-            policies, dict_objects = self.client.get_all_policies()
-            all_objects = self.client.get_all_objects()
+            self.print_log("🚀 Запуск выгрузки в фоне...")
+            self.thread = QThread()
+            self.worker = FetchWorker(self.client)
 
-            with open("policies.json", "w", encoding="utf-8") as f:
-                json.dump(policies, f, indent=2, ensure_ascii=False)
-            with open("objects-dictionary.json", "w", encoding="utf-8") as f:
-                json.dump(dict_objects, f, indent=2, ensure_ascii=False)
-            with open("all_objects.json", "w", encoding="utf-8") as f:
-                json.dump(all_objects, f, indent=2, ensure_ascii=False)
+            self.worker.moveToThread(self.thread)
 
-            self.print_log("✅ Данные успешно выгружены")
-            self.populate_layers()
+            self.thread.started.connect(self.worker.run)
+            self.worker.finished.connect(self.thread.quit)
+            self.worker.finished.connect(self.worker.deleteLater)
+            self.thread.finished.connect(self.thread.deleteLater)
 
-            # Активируем действия
-            self.load_button.setEnabled(True)
-            self.export_button.setEnabled(True)
+            self.worker.progress.connect(self.print_log)
+            self.worker.error.connect(lambda msg: QMessageBox.critical(self, "Ошибка", msg))
+            self.worker.result.connect(self.handle_fetch_result)
+
+            self.thread.start()
+            self.fetch_button.setEnabled(False)
 
         except Exception as e:
             self.print_log(f"❌ Ошибка при выгрузке: {e}")
@@ -131,6 +132,13 @@ class MainWindow(QMainWindow):
             self.print_log("✅ Слои загружены из policies.json")
         except Exception as e:
             self.print_log(f"❌ Ошибка при загрузке слоёв: {e}")
+
+    def handle_fetch_result(self, policies, dict_objects, all_objects):
+        self.print_log("🧠 Обработка полученных данных...")
+        self.populate_layers()
+        self.load_button.setEnabled(True)
+        self.export_button.setEnabled(True)
+        self.fetch_button.setEnabled(True)
 
     def export_and_load_selected_layer(self):
         try:

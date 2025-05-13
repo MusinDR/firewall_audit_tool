@@ -1,26 +1,12 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMessageBox, QDialog
-from checkpoint_client import CheckpointClient
-from gui.login_window import LoginDialog
-from gui.main_window import MainWindow
+from PyQt6.QtWidgets import QApplication
+from gui.login_window import LoginWindow
 
 def main():
     app = QApplication(sys.argv)
-
-    login = LoginDialog()
-    if login.exec() == QDialog.DialogCode.Accepted:
-        ip, user, password = login.get_credentials()
-        client = CheckpointClient(ip, user, password)
-
-        if client.login():
-            window = MainWindow(client)
-            window.show()
-            sys.exit(app.exec())  # <— это важно
-        else:
-            QMessageBox.critical(None, "Ошибка входа", "Неверные данные")
-            sys.exit(1)
-    else:
-        sys.exit(0)
+    login = LoginWindow()
+    login.show()
+    sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()
