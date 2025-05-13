@@ -78,7 +78,7 @@ class LoginWindow(QDialog):
                 executor.shutdown(wait=False)
 
         # Через 8 секунд проверим результат
-        QTimer.singleShot(8000, check_result)
+        QTimer.singleShot(3000, check_result)
 
     def show_error(self, message: str):
         self.login_button.setEnabled(True)
