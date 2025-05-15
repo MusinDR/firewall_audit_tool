@@ -34,13 +34,14 @@ class CSVExporter:
                 if not rules:
                     print(f"❌ Слой '{selected_layer}' не найден.")
                     return
-                self._write_rules(writer, rules, selected_layer)
+                self._write_rules(writer, rules, selected_layer, layer_path=[selected_layer])
             else:
                 for layer_name, rules in self.policies.items():
-                    self._write_rules(writer, rules, layer_name)
+                    self._write_rules(writer, rules, layer_name, layer_path=[layer_name])
 
-    def _write_rules(self, writer, rules, layer_name, parent_prefix="", display_layer=None, section_name=""):
-        display_layer = display_layer or layer_name
+    def _write_rules(self, writer, rules, layer_name, parent_prefix="", layer_path=None, section_name=""):
+        if layer_path is None:
+            layer_path = [layer_name]
         rule_index = 0
 
         for rule in rules:
@@ -49,13 +50,12 @@ class CSVExporter:
                 rule_num = f"{parent_prefix}{rule_index}"
                 current_section = rule.get("name", "[Без имени]")
 
-                # Рекурсивная обработка содержимого секции
                 self._write_rules(
                     writer,
                     rule.get("rulebase", []),
                     layer_name=layer_name,
                     parent_prefix=f"{rule_num}.",
-                    display_layer=display_layer,
+                    layer_path=layer_path,
                     section_name=current_section
                 )
                 continue
@@ -67,7 +67,7 @@ class CSVExporter:
             track_type = track.get("type") if isinstance(track, dict) else track
 
             writer.writerow([
-                display_layer,
+                " / ".join(layer_path),
                 section_name,
                 rule_num,
                 rule.get("enabled"),
@@ -94,14 +94,14 @@ class CSVExporter:
                         nested_rules,
                         layer_name=layer_name,
                         parent_prefix=f"{rule_num}.",
-                        display_layer=nested_layer_name,
-                        section_name=section_name  # наследуем секцию
+                        layer_path=layer_path + [nested_layer_name],
+                        section_name=section_name
                     )
                 else:
                     writer.writerow([
                         nested_layer_name or nested_layer_uid,
-                        f"{rule_num}.x",
                         section_name,
+                        f"{rule_num}.x",
                         "[Ошибка: нет данных для inline-layer]",
                         "", "", "", "", "", "", "", "", ""
                     ])

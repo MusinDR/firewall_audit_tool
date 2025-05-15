@@ -1,9 +1,8 @@
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
-    QPushButton, QTableWidget, QTableWidgetItem,
-    QLabel, QTextEdit, QMessageBox, QHeaderView, QSplitter, QComboBox, QFileDialog
+    QPushButton, QTableWidget, QTableWidgetItem, QLabel, QTextEdit,
+    QMessageBox, QHeaderView, QSplitter, QComboBox, QFileDialog, QDialog
 )
-
 from PyQt6.QtCore import Qt, QThread
 import csv
 import os
@@ -13,6 +12,10 @@ from checkpoint_client import CheckpointClient
 from csv_exporter import CSVExporter
 from object_resolver import ObjectResolver
 from fetch_worker import FetchWorker
+from audit_engine import RuleAuditor
+from audit_exporter import AuditExporter
+from gui.audit_settings_dialog import AuditSettingsDialog
+
 
 class MainWindow(QMainWindow):
     def __init__(self, client: CheckpointClient):
@@ -20,6 +23,16 @@ class MainWindow(QMainWindow):
         self.client = client
         self.setWindowTitle("CheckPoint Audit Tool")
         self.resize(1200, 800)
+
+        self.audit_checks = {
+            'any_to_any_accept': True,
+            'no_track': True,
+            'hit_count_zero': True,
+            'disabled_rule': True,
+            'any_service_accept': True,
+            'any_destination_accept': True,
+            'any_source_accept': True
+        }
 
         self.tabs = QTabWidget()
         self.rules_tab = QWidget()
@@ -30,6 +43,9 @@ class MainWindow(QMainWindow):
         self.layer_selector = QComboBox()
         self.layer_selector.setPlaceholderText("Выберите слой политики...")
 
+        self.audit_layer_selector = QComboBox()
+        self.audit_layer_selector.setPlaceholderText("Выберите слой для аудита...")
+
         self.init_rules_tab()
         self.init_audit_tab()
 
@@ -39,8 +55,6 @@ class MainWindow(QMainWindow):
         splitter = QSplitter(Qt.Orientation.Vertical)
         splitter.addWidget(self.tabs)
         splitter.addWidget(self.console_output)
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 1)
 
         container = QWidget()
         layout = QVBoxLayout(container)
@@ -60,8 +74,6 @@ class MainWindow(QMainWindow):
         self.export_button = QPushButton("💾 Экспорт в CSV...")
         self.export_button.clicked.connect(self.export_table_to_csv)
         self.export_button.setEnabled(False)
-        self.export_button.setFixedHeight(28)
-        self.export_button.setMaximumWidth(150)
 
         self.rules_table = QTableWidget()
         self.rules_table.setColumnCount(10)
@@ -70,7 +82,6 @@ class MainWindow(QMainWindow):
             "Action", "Track", "Enabled", "Comments"
         ])
         self.rules_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.rules_table.horizontalHeader().setStretchLastSection(True)
         self.rules_table.setWordWrap(True)
 
         control_layout = QHBoxLayout()
@@ -92,15 +103,47 @@ class MainWindow(QMainWindow):
 
     def init_audit_tab(self):
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Результаты аудита появятся здесь."))
+
+        self.audit_button = QPushButton("🔍 Выполнить аудит")
+        self.audit_button.clicked.connect(self.run_audit)
+
+        self.settings_button = QPushButton("⚙ Настройки аудита")
+        self.settings_button.clicked.connect(self.open_audit_settings)
+
+        self.export_audit_button = QPushButton("💾 Экспорт аудита в CSV")
+        self.export_audit_button.clicked.connect(self.export_audit_findings)
+        self.export_audit_button.setEnabled(False)
+
+        audit_controls = QHBoxLayout()
+        audit_controls.addWidget(QLabel("Слой для аудита:"))
+        audit_controls.addWidget(self.audit_layer_selector)
+        audit_controls.addWidget(self.audit_button)
+        audit_controls.addWidget(self.settings_button)
+        audit_controls.addWidget(self.export_audit_button)
+
+        self.audit_table = QTableWidget()
+        self.audit_table.setColumnCount(6)
+        self.audit_table.setHorizontalHeaderLabels([
+            "Layer", "Rule #", "Rule Name", "Severity", "Issue", "Comment"
+        ])
+        self.audit_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.audit_table.setWordWrap(True)
+
+        layout.addLayout(audit_controls)
+        layout.addWidget(self.audit_table)
         self.audit_tab.setLayout(layout)
+
+    def open_audit_settings(self):
+        dialog = AuditSettingsDialog(self.audit_checks)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.audit_checks = dialog.get_selected_checks()
+            self.print_log("⚙ Настройки аудита обновлены")
 
     def fetch_from_firewall(self):
         try:
             self.print_log("🚀 Запуск выгрузки в фоне...")
             self.thread = QThread()
             self.worker = FetchWorker(self.client)
-
             self.worker.moveToThread(self.thread)
 
             self.thread.started.connect(self.worker.run)
@@ -114,10 +157,16 @@ class MainWindow(QMainWindow):
 
             self.thread.start()
             self.fetch_button.setEnabled(False)
-
         except Exception as e:
             self.print_log(f"❌ Ошибка при выгрузке: {e}")
-            QMessageBox.critical(self, "Ошибка", f"Ошибка при выгрузке с МЭ:\n{e}")
+            QMessageBox.critical(self, "Ошибка", str(e))
+
+    def handle_fetch_result(self, policies, dict_objects, all_objects):
+        self.print_log("🧠 Обработка полученных данных...")
+        self.populate_layers()
+        self.load_button.setEnabled(True)
+        self.export_button.setEnabled(True)
+        self.fetch_button.setEnabled(True)
 
     def populate_layers(self):
         try:
@@ -127,26 +176,20 @@ class MainWindow(QMainWindow):
             with open("policies.json", encoding="utf-8") as f:
                 policies = json.load(f)
             self.layer_selector.clear()
-            for layer_name in policies.keys():
-                self.layer_selector.addItem(layer_name)
-            self.print_log("✅ Слои загружены из policies.json")
+            self.audit_layer_selector.clear()
+            for layer in policies:
+                self.layer_selector.addItem(layer)
+                self.audit_layer_selector.addItem(layer)
+            self.print_log("✅ Слои загружены")
         except Exception as e:
-            self.print_log(f"❌ Ошибка при загрузке слоёв: {e}")
-
-    def handle_fetch_result(self, policies, dict_objects, all_objects):
-        self.print_log("🧠 Обработка полученных данных...")
-        self.populate_layers()
-        self.load_button.setEnabled(True)
-        self.export_button.setEnabled(True)
-        self.fetch_button.setEnabled(True)
+            self.print_log(f"❌ Ошибка загрузки слоёв: {e}")
 
     def export_and_load_selected_layer(self):
+        layer = self.layer_selector.currentText()
+        if not layer:
+            QMessageBox.warning(self, "Ошибка", "Выберите слой.")
+            return
         try:
-            selected_layer_name = self.layer_selector.currentText()
-            if not selected_layer_name:
-                QMessageBox.warning(self, "Выбор слоя", "Пожалуйста, выберите слой политики.")
-                return
-
             with open("policies.json", encoding="utf-8") as f:
                 policies = json.load(f)
             with open("objects-dictionary.json", encoding="utf-8") as f:
@@ -156,45 +199,94 @@ class MainWindow(QMainWindow):
 
             resolver = ObjectResolver(all_objects, dict_objects)
             exporter = CSVExporter(policies, resolver)
-            exporter.export_to_csv("rules_export.csv", selected_layer_name)
-
+            exporter.export_to_csv("rules_export.csv", selected_layer=layer)
             self.load_rules_from_csv("rules_export.csv")
-            self.print_log(f"📊 Таблица правил обновлена для слоя: {selected_layer_name}")
+            self.print_log(f"📋 Правила слоя '{layer}' загружены.")
         except Exception as e:
-            self.print_log(f"❌ Ошибка при отображении слоя: {e}")
-            QMessageBox.critical(self, "Ошибка", f"Ошибка при отображении:\n{e}")
+            self.print_log(f"❌ Ошибка отображения: {e}")
+            QMessageBox.critical(self, "Ошибка", str(e))
 
-    def load_rules_from_csv(self, filepath: str):
-        if not os.path.exists(filepath):
-            self.print_log("❌ Файл не найден: " + filepath)
+    def load_rules_from_csv(self, path: str):
+        if not os.path.exists(path):
+            self.print_log(f"❌ Файл не найден: {path}")
             return
 
-        with open(filepath, newline='', encoding="utf-8") as f:
+        with open(path, newline='', encoding="utf-8") as f:
             reader = csv.reader(f)
             headers = next(reader)
             self.rules_table.setRowCount(0)
             self.rules_table.setColumnCount(len(headers))
             self.rules_table.setHorizontalHeaderLabels(headers)
 
-            for row_idx, row_data in enumerate(reader):
-                self.rules_table.insertRow(row_idx)
-                for col_idx, value in enumerate(row_data):
-                    item = QTableWidgetItem(value)
+            for i, row in enumerate(reader):
+                self.rules_table.insertRow(i)
+                for j, val in enumerate(row):
+                    item = QTableWidgetItem(val)
                     item.setFlags(item.flags() ^ Qt.ItemFlag.ItemIsEditable)
-                    item.setToolTip(value)
-                    item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-                    self.rules_table.setItem(row_idx, col_idx, item)
+                    item.setToolTip(val)
+                    self.rules_table.setItem(i, j, item)
 
         self.rules_table.resizeRowsToContents()
 
-    def export_table_to_csv(self):
-        filepath, _ = QFileDialog.getSaveFileName(self, "Сохранить как CSV", "", "CSV Files (*.csv)")
-        if not filepath:
+    def run_audit(self):
+        layer = self.audit_layer_selector.currentText()
+        if not layer:
+            QMessageBox.warning(self, "Ошибка", "Выберите слой.")
+            return
+        try:
+            with open("policies.json", encoding="utf-8") as f:
+                policies = json.load(f)
+            with open("objects-dictionary.json", encoding="utf-8") as f:
+                dict_objects = json.load(f)
+            with open("all_objects.json", encoding="utf-8") as f:
+                all_objects = json.load(f)
+
+            resolver = ObjectResolver(all_objects, dict_objects)
+            auditor = RuleAuditor(policies, resolver, enabled_checks=self.audit_checks)
+            findings = auditor.run_audit(selected_layer=layer)
+
+            if not findings:
+                QMessageBox.information(self, "Аудит завершен", "Нарушений не найдено.")
+                return
+
+            AuditExporter(findings).export_to_csv("audit_findings.csv")
+            self.load_audit_findings()
+            self.export_audit_button.setEnabled(True)
+            self.print_log(f"✅ Аудит завершён. Найдено: {len(findings)} нарушений.")
+        except Exception as e:
+            self.print_log(f"❌ Ошибка аудита: {e}")
+            QMessageBox.critical(self, "Ошибка", str(e))
+
+    def load_audit_findings(self):
+        path = "audit_findings.csv"
+        if not os.path.exists(path):
+            self.print_log("❌ Файл аудита не найден.")
             return
 
+        with open(path, newline='', encoding="utf-8") as f:
+            reader = csv.reader(f)
+            headers = next(reader)
+            self.audit_table.setRowCount(0)
+            self.audit_table.setColumnCount(len(headers))
+            self.audit_table.setHorizontalHeaderLabels(headers)
+
+            for i, row in enumerate(reader):
+                self.audit_table.insertRow(i)
+                for j, val in enumerate(row):
+                    item = QTableWidgetItem(val)
+                    item.setFlags(item.flags() ^ Qt.ItemFlag.ItemIsEditable)
+                    item.setToolTip(val)
+                    self.audit_table.setItem(i, j, item)
+
+        self.audit_table.resizeRowsToContents()
+
+    def export_table_to_csv(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Сохранить как CSV", "", "CSV Files (*.csv)")
+        if not path:
+            return
         try:
-            with open(filepath, mode="w", newline="", encoding="utf-8") as file:
-                writer = csv.writer(file)
+            with open(path, mode="w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
                 headers = [self.rules_table.horizontalHeaderItem(i).text() for i in range(self.rules_table.columnCount())]
                 writer.writerow(headers)
                 for row in range(self.rules_table.rowCount()):
@@ -203,11 +295,25 @@ class MainWindow(QMainWindow):
                         for col in range(self.rules_table.columnCount())
                     ]
                     writer.writerow(row_data)
-
-            self.print_log(f"✅ Таблица экспортирована в {filepath}")
+            self.print_log(f"✅ Таблица экспортирована в {path}")
         except Exception as e:
             self.print_log(f"❌ Ошибка при экспорте: {e}")
-            QMessageBox.critical(self, "Ошибка", f"Ошибка при экспорте в CSV:\n{e}")
+            QMessageBox.critical(self, "Ошибка", str(e))
+
+    def export_audit_findings(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Сохранить отчёт об аудите", "", "CSV Files (*.csv)")
+        if not path:
+            return
+
+        try:
+            with open("audit_findings.csv", encoding="utf-8") as src, open(path, "w", newline='',
+                                                                           encoding="utf-8") as dst:
+                for line in src:
+                    dst.write(line)
+            self.print_log(f"✅ Аудит экспортирован в {path}")
+        except Exception as e:
+            self.print_log(f"❌ Ошибка экспорта аудита: {e}")
+            QMessageBox.critical(self, "Ошибка", str(e))
 
     def print_log(self, message: str):
         self.console_output.append(message)
