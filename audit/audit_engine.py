@@ -1,4 +1,5 @@
 from collections import Counter
+from core.rule_formatter import RuleFormatter
 
 
 class RuleAuditor:
@@ -19,14 +20,16 @@ class RuleAuditor:
         "Info": "🔵"
     }
 
-    def __init__(self, policies: dict, resolver, enabled_checks: dict = None):
+    def __init__(self, policies: dict, resolver, enabled_checks: dict = None, log_func=print):
         self.policies = policies
         self.resolver = resolver
+        self.formatter = RuleFormatter(resolver)
         self.enabled_checks = enabled_checks or self.DEFAULT_CHECKS
         self.findings = []
+        self.log = log_func
 
-    def run_audit(self, selected_layer: str = None) -> list[dict]:
-        print("▶ Запуск аудита...")
+    def run_audit(self, selected_layer: str = None) -> tuple[list[dict], str]:
+        self.log("\n▶ Запуск аудита...")
         self.findings.clear()
 
         layers = [selected_layer] if selected_layer else list(self.policies.keys())
@@ -35,10 +38,11 @@ class RuleAuditor:
             if not rules:
                 continue
             rule_count = self._count_access_rules(rules)
-            print(f"🔍 Слой: {layer} ({rule_count} правил)")
+            self.log(f"🔍 Слой: {layer} ({rule_count} правил)")
             self._process_rules(rules, layer_path=[layer])
-        print(self._build_summary())
-        return self.findings
+        summary = self._build_summary()
+        self.log(summary)
+        return self.findings, summary
 
     def _count_access_rules(self, rules) -> int:
         count = 0
@@ -49,7 +53,7 @@ class RuleAuditor:
                 count += self._count_access_rules(rule.get("rulebase", []))
         return count
 
-    def _process_rules(self, rules, layer_path, parent_prefix="", rule_counter=None):
+    def _process_rules(self, rules, layer_path, parent_prefix="", rule_counter=None, section_name=""):
         if rule_counter is None:
             rule_counter = [0]
 
@@ -58,13 +62,23 @@ class RuleAuditor:
             rule_name = rule.get("name", "")
 
             if rule_type == "access-section":
-                self._process_rules(rule.get("rulebase", []), layer_path, parent_prefix, rule_counter)
+                self._process_rules(rule.get("rulebase", []), layer_path, parent_prefix, rule_counter, rule.get("name", "[Без имени]"))
                 continue
 
             rule_counter[0] += 1
             rule_number = f"{parent_prefix}{rule_counter[0]}"
+            formatted_rule = self.formatter.format(rule, rule_number, section_name, layer_path)
 
-            resolved_rule = self._resolve_rule(rule)
+            resolved_rule = {
+                "source": formatted_rule[6],
+                "destination": formatted_rule[7],
+                "service": formatted_rule[8],
+                "action": formatted_rule[9],
+                "track": formatted_rule[11],
+                "enabled": formatted_rule[3],
+                "comments": formatted_rule[13]
+            }
+
             uid = rule.get("uid")
             current_layer_path = " / ".join(layer_path)
 
@@ -74,7 +88,7 @@ class RuleAuditor:
                 if result:
                     severity = result["severity"]
                     icon = self.SEVERITY_ICONS.get(severity, "")
-                    issue_text = f"{icon} [{severity}] - [{result['issue']}]"
+                    issue_text = f"   [{severity}] - [{result['issue']}]"
                     print(f"    {issue_text} в правиле '{rule_name}' (номер: {rule_number}) слоя '{current_layer_path}'")
                     self.findings.append({
                         "layer": current_layer_path,
@@ -86,40 +100,13 @@ class RuleAuditor:
                         "rule": resolved_rule
                     })
 
-            # рекурсивный заход в inline-layer
             if "inline-layer" in rule:
                 nested_uid = rule["inline-layer"]
                 nested_name = self.resolver.get_layer_name_by_uid(nested_uid)
                 nested_rules = self.policies.get(nested_name)
                 if nested_rules:
-                    print(f"  🔁 Переход в inline-layer: {nested_name} ({len(nested_rules)} правил)")
+                    print(f"    🔁 Переход в inline-layer: {nested_name}")
                     self._process_rules(nested_rules, layer_path + [nested_name], parent_prefix=f"{rule_number}.", rule_counter=[0])
-
-    def _resolve_rule(self, rule) -> dict:
-        return {
-            "source": self._format_uids(rule.get("source")),
-            "destination": self._format_uids(rule.get("destination")),
-            "service": self._format_uids(rule.get("service")),
-            "action": self._format_uid(rule.get("action")),
-            "track": self._format_uid((rule.get("track") or {}).get("type")),
-            "enabled": rule.get("enabled"),
-            "comments": rule.get("comments", "")
-        }
-
-    def _format_uids(self, items: list) -> str:
-        if not items:
-            return ""
-        return "; ".join([
-            self.resolver.format(obj.get("uid") if isinstance(obj, dict) else obj)
-            for obj in items
-        ])
-
-    def _format_uid(self, item) -> str:
-        if isinstance(item, dict):
-            return self.resolver.format(item.get("uid"))
-        if isinstance(item, str):
-            return self.resolver.format(item)
-        return "[Invalid UID]"
 
     def _get_check_methods(self):
         checks = []
@@ -173,7 +160,7 @@ class RuleAuditor:
         counter = Counter(f["severity"] for f in self.findings)
         if not counter:
             return "✅ Нарушений не найдено."
-        lines = ["\n📊 Сводка нарушений:"]
+        lines = ["\n  📊 Сводка нарушений:"]
         for level in ["Critical", "High", "Medium", "Info"]:
             if level in counter:
                 icon = self.SEVERITY_ICONS.get(level, "")

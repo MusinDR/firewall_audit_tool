@@ -6,15 +6,15 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread
 import csv
 import os
-import json
 
 from checkpoint_client import CheckpointClient
-from csv_exporter import CSVExporter
-from object_resolver import ObjectResolver
 from fetch_worker import FetchWorker
-from audit_engine import RuleAuditor
-from audit_exporter import AuditExporter
 from gui.audit_settings_dialog import AuditSettingsDialog
+from core.policy_controller import export_selected_layer_to_csv
+from core.audit_controller import run_audit_and_export
+from core.data_loader import load_json
+from core.data_writer import save_all
+from core.logger import logger
 
 
 class MainWindow(QMainWindow):
@@ -57,8 +57,9 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.console_output)
 
         container = QWidget()
-        layout = QVBoxLayout(container)
+        layout = QVBoxLayout()
         layout.addWidget(splitter)
+        container.setLayout(layout)
         self.setCentralWidget(container)
 
     def init_rules_tab(self):
@@ -133,6 +134,36 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.audit_table)
         self.audit_tab.setLayout(layout)
 
+    def run_audit(self):
+        layer = self.audit_layer_selector.currentText()
+        if not layer:
+            QMessageBox.warning(self, "Ошибка", "Выберите слой.")
+            return
+        try:
+            from audit.audit_engine import RuleAuditor
+            from resolvers.object_resolver import ObjectResolver
+            from core.data_loader import load_all_data
+
+            policies, dict_objects, all_objects = load_all_data()
+            resolver = ObjectResolver(all_objects, dict_objects)
+            auditor = RuleAuditor(policies, resolver, enabled_checks=self.audit_checks, log_func=self.print_log)
+            findings, summary = auditor.run_audit(selected_layer=layer)
+
+            if not findings:
+                QMessageBox.information(self, "Аудит завершен", "Нарушений не найдено.")
+                return
+
+            from core.audit_controller import export_findings_to_csv
+            export_findings_to_csv(findings, "tmp/audit_findings.csv")
+            self.load_audit_findings()
+            self.export_audit_button.setEnabled(True)
+            self.print_log(f"\n✅ Аудит завершён. Найдено: {len(findings)} нарушений.")
+            #self.print_log(summary)
+
+        except Exception as e:
+            self.print_log(f"❌ Ошибка аудита: {e}")
+            QMessageBox.critical(self, "Ошибка", str(e))
+
     def open_audit_settings(self):
         dialog = AuditSettingsDialog(self.audit_checks)
         if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -162,19 +193,20 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Ошибка", str(e))
 
     def handle_fetch_result(self, policies, dict_objects, all_objects):
-        self.print_log("🧠 Обработка полученных данных...")
-        self.populate_layers()
-        self.load_button.setEnabled(True)
-        self.export_button.setEnabled(True)
-        self.fetch_button.setEnabled(True)
+        try:
+            save_all(policies, dict_objects, all_objects)
+            self.populate_layers()
+            self.load_button.setEnabled(True)
+            self.export_button.setEnabled(True)
+            self.fetch_button.setEnabled(True)
+            self.print_log("✅ Данные сохранены и загружены")
+        except Exception as e:
+            self.print_log(f"❌ Ошибка при сохранении: {e}")
+            QMessageBox.critical(self, "Ошибка", str(e))
 
     def populate_layers(self):
         try:
-            if not os.path.exists("policies.json"):
-                self.print_log("❗ Сначала необходимо выгрузить политики с МЭ")
-                return
-            with open("policies.json", encoding="utf-8") as f:
-                policies = json.load(f)
+            policies = load_json("tmp/policies.json")
             self.layer_selector.clear()
             self.audit_layer_selector.clear()
             for layer in policies:
@@ -190,17 +222,8 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Ошибка", "Выберите слой.")
             return
         try:
-            with open("policies.json", encoding="utf-8") as f:
-                policies = json.load(f)
-            with open("objects-dictionary.json", encoding="utf-8") as f:
-                dict_objects = json.load(f)
-            with open("all_objects.json", encoding="utf-8") as f:
-                all_objects = json.load(f)
-
-            resolver = ObjectResolver(all_objects, dict_objects)
-            exporter = CSVExporter(policies, resolver)
-            exporter.export_to_csv("rules_export.csv", selected_layer=layer)
-            self.load_rules_from_csv("rules_export.csv")
+            export_selected_layer_to_csv(layer)
+            self.load_rules_from_csv("tmp/rules_export.csv")
             self.print_log(f"📋 Правила слоя '{layer}' загружены.")
         except Exception as e:
             self.print_log(f"❌ Ошибка отображения: {e}")
@@ -228,37 +251,8 @@ class MainWindow(QMainWindow):
 
         self.rules_table.resizeRowsToContents()
 
-    def run_audit(self):
-        layer = self.audit_layer_selector.currentText()
-        if not layer:
-            QMessageBox.warning(self, "Ошибка", "Выберите слой.")
-            return
-        try:
-            with open("policies.json", encoding="utf-8") as f:
-                policies = json.load(f)
-            with open("objects-dictionary.json", encoding="utf-8") as f:
-                dict_objects = json.load(f)
-            with open("all_objects.json", encoding="utf-8") as f:
-                all_objects = json.load(f)
-
-            resolver = ObjectResolver(all_objects, dict_objects)
-            auditor = RuleAuditor(policies, resolver, enabled_checks=self.audit_checks)
-            findings = auditor.run_audit(selected_layer=layer)
-
-            if not findings:
-                QMessageBox.information(self, "Аудит завершен", "Нарушений не найдено.")
-                return
-
-            AuditExporter(findings).export_to_csv("audit_findings.csv")
-            self.load_audit_findings()
-            self.export_audit_button.setEnabled(True)
-            self.print_log(f"✅ Аудит завершён. Найдено: {len(findings)} нарушений.")
-        except Exception as e:
-            self.print_log(f"❌ Ошибка аудита: {e}")
-            QMessageBox.critical(self, "Ошибка", str(e))
-
     def load_audit_findings(self):
-        path = "audit_findings.csv"
+        path = "tmp/audit_findings.csv"
         if not os.path.exists(path):
             self.print_log("❌ Файл аудита не найден.")
             return
@@ -304,10 +298,8 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(self, "Сохранить отчёт об аудите", "", "CSV Files (*.csv)")
         if not path:
             return
-
         try:
-            with open("audit_findings.csv", encoding="utf-8") as src, open(path, "w", newline='',
-                                                                           encoding="utf-8") as dst:
+            with open("tmp/audit_findings.csv", encoding="utf-8") as src, open(path, "w", newline='', encoding="utf-8") as dst:
                 for line in src:
                     dst.write(line)
             self.print_log(f"✅ Аудит экспортирован в {path}")
@@ -315,6 +307,14 @@ class MainWindow(QMainWindow):
             self.print_log(f"❌ Ошибка экспорта аудита: {e}")
             QMessageBox.critical(self, "Ошибка", str(e))
 
-    def print_log(self, message: str):
+    def print_log(self, message: str, level="info"):
+        if level == "debug":
+            logger.debug(message)
+        elif level == "warning":
+            logger.warning(message)
+        elif level == "error":
+            logger.error(message)
+        else:
+            logger.info(message)
         self.console_output.append(message)
-        print(message)
+

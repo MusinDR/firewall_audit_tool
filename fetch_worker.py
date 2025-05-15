@@ -1,12 +1,11 @@
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
-import json
 
 
 class FetchWorker(QObject):
     finished = pyqtSignal()
     error = pyqtSignal(str)
     progress = pyqtSignal(str)
-    result = pyqtSignal(dict, dict, list)
+    result = pyqtSignal(dict, dict, list)  # policies, dict_objects, all_objects
 
     def __init__(self, client: 'CheckpointClient'):
         super().__init__()
@@ -22,18 +21,12 @@ class FetchWorker(QObject):
 
             self.progress.emit("📡 Получаем политики...")
             policies, dict_objects = self.client.get_all_policies()
+
             self.progress.emit("📡 Получаем объекты...")
             all_objects = self.client.get_all_objects()
 
-            with open("policies.json", "w", encoding="utf-8") as f:
-                json.dump(policies, f, indent=2, ensure_ascii=False)
-            with open("objects-dictionary.json", "w", encoding="utf-8") as f:
-                json.dump(dict_objects, f, indent=2, ensure_ascii=False)
-            with open("all_objects.json", "w", encoding="utf-8") as f:
-                json.dump(all_objects, f, indent=2, ensure_ascii=False)
-
+            self.progress.emit("✅ Данные успешно получены")
             self.result.emit(policies, dict_objects, all_objects)
-            self.progress.emit("✅ Данные успешно выгружены")
         except Exception as e:
             self.error.emit(str(e))
         finally:
