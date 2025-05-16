@@ -29,7 +29,7 @@ class RuleAuditor:
         self.log = log_func
 
     def run_audit(self, selected_layer: str = None) -> tuple[list[dict], str]:
-        self.log("\n▶ Запуск аудита...")
+        self.log("\n🚀 Запуск аудита...")
         self.findings.clear()
 
         layers = [selected_layer] if selected_layer else list(self.policies.keys())

@@ -9,7 +9,7 @@ class AuditSettingsDialog(QDialog):
         self.resize(300, 250)
 
         self.checks = {
-            "any_to_any_accept": QCheckBox("Any → Any → Accept"),
+            "any_to_any_accept": QCheckBox("Any / Any → Accept"),
             "no_track": QCheckBox("No Track configured"),
             "hit_count_zero": QCheckBox("Hit count is zero"),
             "disabled_rule": QCheckBox("Rule is disabled"),

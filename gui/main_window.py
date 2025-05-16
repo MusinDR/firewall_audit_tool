@@ -12,9 +12,11 @@ from fetch_worker import FetchWorker
 from gui.audit_settings_dialog import AuditSettingsDialog
 from core.policy_controller import export_selected_layer_to_csv
 from core.audit_controller import run_audit_and_export
-from core.data_loader import load_json
+from core.data_loader import load_json, load_all_data
 from core.data_writer import save_all
 from core.logger import logger
+from audit.audit_engine import RuleAuditor
+from resolvers.object_resolver import ObjectResolver
 
 
 class MainWindow(QMainWindow):
@@ -140,10 +142,6 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Ошибка", "Выберите слой.")
             return
         try:
-            from audit.audit_engine import RuleAuditor
-            from resolvers.object_resolver import ObjectResolver
-            from core.data_loader import load_all_data
-
             policies, dict_objects, all_objects = load_all_data()
             resolver = ObjectResolver(all_objects, dict_objects)
             auditor = RuleAuditor(policies, resolver, enabled_checks=self.audit_checks, log_func=self.print_log)

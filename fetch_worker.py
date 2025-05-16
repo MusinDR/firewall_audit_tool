@@ -13,7 +13,7 @@ class FetchWorker(QObject):
 
     def run(self):
         try:
-            self.progress.emit("▶ Начинаем подключение к CheckPoint...")
+            self.progress.emit("🚀 Начинаем подключение к CheckPoint...")
             if not self.client.login():
                 self.error.emit("❌ Ошибка авторизации")
                 self.finished.emit()
