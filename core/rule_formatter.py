@@ -23,16 +23,18 @@ class RuleFormatter:
             self._format_uids(rule.get("time")),
             self._format_uid(track_type),
             self._format_uids(rule.get("install-on")),
-            str(rule.get("comments") or "")
+            str(rule.get("comments") or ""),
         ]
 
     def _format_uids(self, items: list) -> str:
         if not items:
             return ""
-        return "; ".join([
-            self.resolver.format(obj.get("uid") if isinstance(obj, dict) else obj)
-            for obj in items
-        ])
+        return "; ".join(
+            [
+                self.resolver.format(obj.get("uid") if isinstance(obj, dict) else obj)
+                for obj in items
+            ]
+        )
 
     def _format_uid(self, item) -> str:
         if isinstance(item, dict):

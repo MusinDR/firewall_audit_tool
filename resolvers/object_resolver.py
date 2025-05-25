@@ -2,6 +2,7 @@
 
 from resolvers import formatters
 
+
 class ObjectResolver:
     def __init__(self, all_objects: list, dict_objects: list):
         self.uid_map_obj = {obj["uid"]: obj for obj in all_objects if "uid" in obj}
@@ -48,10 +49,19 @@ class ObjectResolver:
             "time": formatters.format_time,
             "track": formatters.format_track,
             "CpmiAnyObject": formatters.format_cpmi_any,
-            **{k: formatters.format_service for k in [
-                "service-tcp", "service-udp", "service-icmp",
-                "service-dce-rpc", "service-gtp", "service-other",
-                "service-rpc", "service-sctp"]},
+            **{
+                k: formatters.format_service
+                for k in [
+                    "service-tcp",
+                    "service-udp",
+                    "service-icmp",
+                    "service-dce-rpc",
+                    "service-gtp",
+                    "service-other",
+                    "service-rpc",
+                    "service-sctp",
+                ]
+            },
         }
 
     def _format_group(self, uid: str) -> str:
@@ -68,7 +78,11 @@ class ObjectResolver:
 
         formatted_members = []
         for member in members:
-            mid = member.get("uid") if isinstance(member, dict) else member if isinstance(member, str) else None
+            mid = (
+                member.get("uid")
+                if isinstance(member, dict)
+                else member if isinstance(member, str) else None
+            )
             if not mid:
                 formatted_members.append("[Invalid member format]")
                 continue
@@ -80,12 +94,19 @@ class ObjectResolver:
         include_obj = obj.get("include", {})
         exclude_obj = obj.get("except", {})
 
-        include = self._format_group(include_obj.get("uid")) if include_obj.get("type") == "group" else include_obj.get("name")
+        include = (
+            self._format_group(include_obj.get("uid"))
+            if include_obj.get("type") == "group"
+            else include_obj.get("name")
+        )
         exclude = self._format_group(exclude_obj.get("uid"))
         return f"{obj['name']} (group-with-exclusion, Include: {include}, Exclude: {exclude})"
 
     def get_layer_name_by_uid(self, uid: str) -> str | None:
         for obj in self.uid_map_dict.values():
-            if obj.get("type") in {"access-layer", "inline-layer", "Global"} and obj.get("uid") == uid:
+            if (
+                obj.get("type") in {"access-layer", "inline-layer", "Global"}
+                and obj.get("uid") == uid
+            ):
                 return obj.get("name")
         return None

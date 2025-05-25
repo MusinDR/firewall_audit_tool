@@ -1,10 +1,12 @@
 # checkpoint_client.py
 
-from cpapi import APIClient, APIClientArgs
 import json
-import urllib3
 
-#urllib3.disable_warnings()
+import urllib3
+from cpapi import APIClient, APIClientArgs
+
+urllib3.disable_warnings()
+
 
 class CheckpointClient:
 
@@ -20,7 +22,9 @@ class CheckpointClient:
             response = self.client.login(self.username, self.password)
 
             if not getattr(response, "success", False):
-                print(f"❌ Ошибка авторизации: {getattr(response, 'error_message', 'Неизвестная ошибка')}")
+                print(
+                    f"❌ Ошибка авторизации: {getattr(response, 'error_message', 'Неизвестная ошибка')}"
+                )
                 return False
 
             print("✅ Успешный вход")
@@ -36,7 +40,7 @@ class CheckpointClient:
 
     def get_all_policies(self) -> dict:
         policies_data = {}
-        objects_data  = {}
+        objects_data = {}
 
         layers_resp = self.client.api_call("show-access-layers", {"details-level": "standard"})
         layers = layers_resp.data.get("access-layers", [])
@@ -53,13 +57,16 @@ class CheckpointClient:
             objects_list = []
 
             while offset < total:
-                rulebase_resp = self.client.api_call("show-access-rulebase", {
-                    "name": layer_uid,
-                    "offset": offset,
-                    "limit": limit,
-                    "show-hits": True,
-                    "details-level": "full"
-                })
+                rulebase_resp = self.client.api_call(
+                    "show-access-rulebase",
+                    {
+                        "name": layer_uid,
+                        "offset": offset,
+                        "limit": limit,
+                        "show-hits": True,
+                        "details-level": "full",
+                    },
+                )
 
                 rules_rulebase = rulebase_resp.data.get("rulebase", [])
                 objects_rulebase = rulebase_resp.data.get("objects-dictionary", [])
@@ -85,11 +92,9 @@ class CheckpointClient:
         total = 1
 
         while offset < total:
-            resp = self.client.api_call("show-objects", {
-                "offset": offset,
-                "limit": limit,
-                "details-level": "full"
-            })
+            resp = self.client.api_call(
+                "show-objects", {"offset": offset, "limit": limit, "details-level": "full"}
+            )
 
             if not resp.success:
                 print("❌ Ошибка при получении объектов:", resp.error_message)

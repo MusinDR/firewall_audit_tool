@@ -1,6 +1,5 @@
-from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QCheckBox, QPushButton, QDialogButtonBox
-)
+from PyQt6.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QVBoxLayout
+
 
 class AuditSettingsDialog(QDialog):
     def __init__(self, current_settings: dict):
@@ -15,7 +14,7 @@ class AuditSettingsDialog(QDialog):
             "disabled_rule": QCheckBox("Rule is disabled"),
             "any_service_accept": QCheckBox("Service is Any"),
             "any_destination_accept": QCheckBox("Destination is Any"),
-            "any_source_accept": QCheckBox("Source is Any")
+            "any_source_accept": QCheckBox("Source is Any"),
         }
 
         layout = QVBoxLayout()
@@ -23,7 +22,9 @@ class AuditSettingsDialog(QDialog):
             checkbox.setChecked(current_settings.get(key, True))
             layout.addWidget(checkbox)
 
-        self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        self.button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
 
@@ -32,5 +33,3 @@ class AuditSettingsDialog(QDialog):
 
     def get_selected_checks(self) -> dict:
         return {key: checkbox.isChecked() for key, checkbox in self.checks.items()}
-
-

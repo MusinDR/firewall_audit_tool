@@ -1,4 +1,5 @@
 from collections import Counter
+
 from core.rule_formatter import RuleFormatter
 
 
@@ -10,15 +11,10 @@ class RuleAuditor:
         "disabled_rule": True,
         "any_service_accept": True,
         "any_destination_accept": True,
-        "any_source_accept": True
+        "any_source_accept": True,
     }
 
-    SEVERITY_ICONS = {
-        "Critical": "🔴",
-        "High": "🟠",
-        "Medium": "🟡",
-        "Info": "🔵"
-    }
+    SEVERITY_ICONS = {"Critical": "🔴", "High": "🟠", "Medium": "🟡", "Info": "🔵"}
 
     def __init__(self, policies: dict, resolver, enabled_checks: dict = None, log_func=print):
         self.policies = policies
@@ -29,6 +25,7 @@ class RuleAuditor:
         self.log = log_func
 
     def run_audit(self, selected_layer: str = None) -> tuple[list[dict], str]:
+        self.log("\n=======================================\n")
         self.log("\n🚀 Запуск аудита...")
         self.findings.clear()
 
@@ -53,7 +50,9 @@ class RuleAuditor:
                 count += self._count_access_rules(rule.get("rulebase", []))
         return count
 
-    def _process_rules(self, rules, layer_path, parent_prefix="", rule_counter=None, section_name=""):
+    def _process_rules(
+        self, rules, layer_path, parent_prefix="", rule_counter=None, section_name=""
+    ):
         if rule_counter is None:
             rule_counter = [0]
 
@@ -62,7 +61,13 @@ class RuleAuditor:
             rule_name = rule.get("name", "")
 
             if rule_type == "access-section":
-                self._process_rules(rule.get("rulebase", []), layer_path, parent_prefix, rule_counter, rule.get("name", "[Без имени]"))
+                self._process_rules(
+                    rule.get("rulebase", []),
+                    layer_path,
+                    parent_prefix,
+                    rule_counter,
+                    rule.get("name", "[Без имени]"),
+                )
                 continue
 
             rule_counter[0] += 1
@@ -76,7 +81,7 @@ class RuleAuditor:
                 "action": formatted_rule[9],
                 "track": formatted_rule[11],
                 "enabled": formatted_rule[3],
-                "comments": formatted_rule[13]
+                "comments": formatted_rule[13],
             }
 
             uid = rule.get("uid")
@@ -87,18 +92,21 @@ class RuleAuditor:
                 result = check(rule, resolved_rule)
                 if result:
                     severity = result["severity"]
-                    icon = self.SEVERITY_ICONS.get(severity, "")
                     issue_text = f"   [{severity}] - [{result['issue']}]"
-                    print(f"    {issue_text} в правиле '{rule_name}' (номер: {rule_number}) слоя '{current_layer_path}'")
-                    self.findings.append({
-                        "layer": current_layer_path,
-                        "rule_number": rule_number,
-                        "rule_uid": uid,
-                        "rule_name": rule_name,
-                        "issue": result["issue"],
-                        "severity": severity,
-                        "rule": resolved_rule
-                    })
+                    print(
+                        f"    {issue_text} в правиле '{rule_name}' (номер: {rule_number}) слоя '{current_layer_path}'"
+                    )
+                    self.findings.append(
+                        {
+                            "layer": current_layer_path,
+                            "rule_number": rule_number,
+                            "rule_uid": uid,
+                            "rule_name": rule_name,
+                            "issue": result["issue"],
+                            "severity": severity,
+                            "rule": resolved_rule,
+                        }
+                    )
 
             if "inline-layer" in rule:
                 nested_uid = rule["inline-layer"]
@@ -106,7 +114,12 @@ class RuleAuditor:
                 nested_rules = self.policies.get(nested_name)
                 if nested_rules:
                     print(f"    🔁 Переход в inline-layer: {nested_name}")
-                    self._process_rules(nested_rules, layer_path + [nested_name], parent_prefix=f"{rule_number}.", rule_counter=[0])
+                    self._process_rules(
+                        nested_rules,
+                        layer_path + [nested_name],
+                        parent_prefix=f"{rule_number}.",
+                        rule_counter=[0],
+                    )
 
     def _get_check_methods(self):
         checks = []
@@ -128,7 +141,11 @@ class RuleAuditor:
 
     # --- Проверки ---
     def _check_any_to_any_accept(self, rule, resolved):
-        if "Any (CpmiAnyObject)" in resolved["source"] and "Any" in resolved["destination"] and resolved["action"].startswith("Accept"):
+        if (
+            "Any (CpmiAnyObject)" in resolved["source"]
+            and "Any" in resolved["destination"]
+            and resolved["action"].startswith("Accept")
+        ):
             return {"issue": "Any / Any → Accept", "severity": "Critical"}
 
     def _check_no_track(self, rule, resolved):
@@ -149,7 +166,9 @@ class RuleAuditor:
             return {"issue": "Service is Any in Accept Rule", "severity": "Medium"}
 
     def _check_any_destination_accept(self, rule, resolved):
-        if "Any (CpmiAnyObject)" in resolved["destination"] and resolved["action"].startswith("Accept"):
+        if "Any (CpmiAnyObject)" in resolved["destination"] and resolved["action"].startswith(
+            "Accept"
+        ):
             return {"issue": "Destination is Any in Accept Rule", "severity": "High"}
 
     def _check_any_source_accept(self, rule, resolved):
