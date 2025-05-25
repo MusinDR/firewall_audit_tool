@@ -1,3 +1,5 @@
+# core/search_resolver.py
+
 import ipaddress
 from typing import Any
 

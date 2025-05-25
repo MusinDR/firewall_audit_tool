@@ -1,3 +1,5 @@
+# core/csv_exporter.py
+
 import csv
 from core.rule_formatter import RuleFormatter
 from resolvers.object_resolver import ObjectResolver

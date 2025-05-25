@@ -1,4 +1,4 @@
-# object_resolver.py
+# resolvers/object_resolver.py
 
 from resolvers import formatters
 

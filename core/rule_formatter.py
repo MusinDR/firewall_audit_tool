@@ -1,5 +1,6 @@
-from resolvers.object_resolver import ObjectResolver
+# core/rule_formatter.py
 
+from resolvers.object_resolver import ObjectResolver
 
 class RuleFormatter:
     def __init__(self, resolver: ObjectResolver):

@@ -1,6 +1,5 @@
 # resolvers/formatters.py
 
-
 def build_attributes(obj, fields):
     attributes = [(label, obj.get(key)) for label, key in fields if obj.get(key)]
     return ", ".join(f"{label}: {value}" for label, value in attributes)

@@ -1,6 +1,7 @@
+# core/data_writer.py
+
 import json
 import os
-
 
 def save_json(data, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
