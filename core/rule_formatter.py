@@ -2,6 +2,7 @@
 
 from resolvers.object_resolver import ObjectResolver
 
+
 class RuleFormatter:
     def __init__(self, resolver: ObjectResolver):
         self.resolver = resolver

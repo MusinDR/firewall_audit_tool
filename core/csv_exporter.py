@@ -1,6 +1,7 @@
 # core/csv_exporter.py
 
 import csv
+
 from core.rule_formatter import RuleFormatter
 from resolvers.object_resolver import ObjectResolver
 
@@ -13,10 +14,24 @@ class CSVExporter:
     def export_to_csv(self, filepath: str, selected_layer: str = None):
         with open(filepath, mode="w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                "Layer", "Section", "Rule #", "Enabled", "Hits", "Name", "Source",
-                "Destination", "Services", "Action", "Time", "Track", "Install On", "Comments"
-            ])
+            writer.writerow(
+                [
+                    "Layer",
+                    "Section",
+                    "Rule #",
+                    "Enabled",
+                    "Hits",
+                    "Name",
+                    "Source",
+                    "Destination",
+                    "Services",
+                    "Action",
+                    "Time",
+                    "Track",
+                    "Install On",
+                    "Comments",
+                ]
+            )
 
             layers = [selected_layer] if selected_layer else list(self.policies.keys())
             for layer in layers:
@@ -30,18 +45,11 @@ class CSVExporter:
                     layer_path=[layer],
                     parent_prefix="",
                     rule_counter=[0],
-                    section_name=""
+                    section_name="",
                 )
 
     def _process_rules(
-        self,
-        writer,
-        rules,
-        layer_name,
-        layer_path,
-        parent_prefix,
-        rule_counter,
-        section_name
+        self, writer, rules, layer_name, layer_path, parent_prefix, rule_counter, section_name
     ):
         for rule in rules:
             rule_type = rule.get("type", "access-rule")
@@ -77,10 +85,21 @@ class CSVExporter:
                         section_name=section_name,
                     )
                 else:
-                    writer.writerow([
-                        nested_layer_name or nested_uid,
-                        section_name,
-                        f"{rule_number}.x",
-                        "[Ошибка: нет данных для inline-layer]",
-                        "", "", "", "", "", "", "", "", "", ""
-                    ])
+                    writer.writerow(
+                        [
+                            nested_layer_name or nested_uid,
+                            section_name,
+                            f"{rule_number}.x",
+                            "[Ошибка: нет данных для inline-layer]",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                            "",
+                        ]
+                    )

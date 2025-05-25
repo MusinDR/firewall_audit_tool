@@ -3,12 +3,18 @@
 import socket
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
-from PyQt6.QtWidgets import (
-    QDialog, QLabel, QLineEdit, QMessageBox, QPushButton,
-    QVBoxLayout, QHBoxLayout, QCheckBox
-)
-from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import (
+    QCheckBox,
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+)
 
 from core.checkpoint_client import CheckpointClient
 from core.logger import logger

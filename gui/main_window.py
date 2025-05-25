@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QTabWidget,
     QTextEdit,
     QVBoxLayout,
-    QWidget
+    QWidget,
 )
 
 from core.checkpoint_client import CheckpointClient
