@@ -1,4 +1,4 @@
-# core/rule_formatter.py
+# infrastructure/rule_formatter.py
 
 from resolvers.object_resolver import ObjectResolver
 

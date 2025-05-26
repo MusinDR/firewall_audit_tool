@@ -4,7 +4,7 @@ import sys
 
 from PyQt6.QtWidgets import QApplication
 
-from gui.login_window import LoginWindow
+from gui.login.login_window import LoginWindow
 from gui.main_window import MainWindow
 
 

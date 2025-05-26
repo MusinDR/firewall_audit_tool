@@ -1,7 +1,7 @@
-# core/policy_controller.py
+# infrastructure/policy_runner.py
 
-from services import PolicyExporterCSV
-from  core.data_io import load_all_data
+from infrastructure.policy_exporter_csv import PolicyExporterCSV
+from infrastructure.json_store import load_all_data
 from resolvers.object_resolver import ObjectResolver
 
 

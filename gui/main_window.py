@@ -1,3 +1,6 @@
+# main_window.py
+
+
 import csv
 import os
 
@@ -8,13 +11,13 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem, QTabWidget, QTextEdit, QVBoxLayout, QWidget
 )
 
-from core.checkpoint_client import CheckpointClient
-from core.logger import logger
-from gui.audit_settings_dialog import AuditSettingsDialog
+from infrastructure.checkpoint_api_client import CheckpointClient
+from infrastructure.logger import logger
+from gui.audit.audit_settings_dialog import AuditSettingsDialog
 from services import AuditService, FetchService, PolicyService
-from gui.widgets.table_to_csv_exporter import TableExporterCSV
-from gui.widgets.rules_table import create_rules_table
-from gui.widgets.audit_table import create_audit_table
+from gui.rules.rules_table import create_rules_table
+from gui.audit.audit_table import create_audit_table
+from gui.utils.table_to_csv_exporter import TableExporterCSV
 from gui.utils.table_from_csv_loader import load_table_from_csv
 
 
@@ -137,7 +140,9 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "Аудит завершен", "Нарушений не найдено.")
                 return
 
+            self.audit_service.export_findings(findings, "tmp/audit_findings.csv")
             load_table_from_csv(self.audit_table, "tmp/audit_findings.csv", self.print_log)
+            self.export_audit_button.setEnabled(True)
 
         except Exception as e:
             self.print_log(f"❌ Ошибка аудита: {e}")

@@ -1,8 +1,8 @@
-# audit/audit_engine.py
+# infrastructure/rule_auditor.py
 
 from collections import Counter
 
-from core.rule_formatter import RuleFormatter
+from infrastructure.rule_formatter import RuleFormatter
 
 
 class RuleAuditor:

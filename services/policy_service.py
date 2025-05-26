@@ -1,7 +1,7 @@
 # services/policy_service.py
 
-from core.data_io import load_json, save_all
-from core.policy_controller import export_selected_layer_to_csv
+from infrastructure.json_store import load_json, save_all
+from infrastructure.policy_runner import export_selected_layer_to_csv
 
 
 class PolicyService:

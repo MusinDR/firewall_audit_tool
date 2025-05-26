@@ -1,9 +1,9 @@
-# services/export_manager.py
+# infrastructure/policy_exporter_csv.py
 
 import csv
 import shutil
 
-from core.rule_formatter import RuleFormatter
+from infrastructure.rule_formatter import RuleFormatter
 from resolvers.object_resolver import ObjectResolver
 
 

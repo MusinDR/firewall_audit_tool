@@ -1,12 +1,14 @@
-# gui/widgets/audit_table.py
+# gui/rules/rules_table.py
 
 from PyQt6.QtWidgets import QTableWidget, QHeaderView
 
-def create_audit_table() -> QTableWidget:
+
+def create_rules_table() -> QTableWidget:
     table = QTableWidget()
-    table.setColumnCount(6)
+    table.setColumnCount(10)
     table.setHorizontalHeaderLabels([
-        "Layer", "Rule #", "Rule Name", "Severity", "Issue", "Comment"
+        "Layer", "Rule #", "Name", "Source", "Destination",
+        "Services", "Action", "Track", "Enabled", "Comments"
     ])
     table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
     table.setWordWrap(True)

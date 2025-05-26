@@ -1,4 +1,4 @@
-# gui/audit_settings_dialog.py
+# gui/audit/audit_settings_dialog.py
 
 from PyQt6.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QVBoxLayout
 

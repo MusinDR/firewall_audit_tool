@@ -2,7 +2,7 @@
 
 from PyQt6.QtCore import QThread
 
-from core.fetch_worker import FetchWorker
+from infrastructure.checkpoint_fetch_worker import FetchWorker
 
 
 class FetchService:

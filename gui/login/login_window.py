@@ -1,4 +1,4 @@
-# gui/login_window.py
+# gui/login/login_window.py
 
 import socket
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
@@ -16,8 +16,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from core.checkpoint_client import CheckpointClient
-from core.logger import logger
+from infrastructure.checkpoint_api_client import CheckpointClient
+from infrastructure.logger import logger
 
 
 class LoginWindow(QDialog):

@@ -1,4 +1,4 @@
-# core/checkpoint_client.py
+# infrastructure/checkpoint_api_client.py
 
 import json
 

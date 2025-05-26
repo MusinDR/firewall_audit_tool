@@ -1,4 +1,4 @@
-# gui/widgets/table_to_csv_exporter.py
+# gui/utils/table_to_csv_exporter.py
 
 import csv
 

@@ -1,6 +1,8 @@
+# infrastructure/checkpoint_fetch_worker.py
+
 from PyQt6.QtCore import QObject, pyqtSignal
 
-from core.checkpoint_client import CheckpointClient
+from infrastructure.checkpoint_api_client import CheckpointClient
 
 
 class FetchWorker(QObject):
