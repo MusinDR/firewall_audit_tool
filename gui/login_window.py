@@ -24,7 +24,7 @@ class LoginWindow(QDialog):
     def __init__(self, main_window_factory):
         super().__init__()
         self.setWindowTitle("Авторизация")
-        self.setFixedSize(320, 220)
+        self.setFixedSize(320, 260)
 
         self.server_input = QLineEdit()
         self.username_input = QLineEdit()

@@ -4,7 +4,7 @@ import csv
 from collections import defaultdict
 
 from audit.audit_engine import RuleAuditor
-from core.data_loader import load_all_data
+from core.data_io import load_all_data
 from resolvers.object_resolver import ObjectResolver
 
 SEVERITY_ORDER = {"Critical": 4, "High": 3, "Medium": 2, "Info": 1}

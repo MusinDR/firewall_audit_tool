@@ -2,7 +2,7 @@
 
 from audit.audit_engine import RuleAuditor
 from core.audit_controller import export_findings_to_csv
-from core.data_loader import load_all_data
+from core.data_io import load_all_data
 from resolvers.object_resolver import ObjectResolver
 
 

@@ -64,7 +64,7 @@ class CheckpointClient:
                         "offset": offset,
                         "limit": limit,
                         "show-hits": True,
-                        "details-level": "full",
+                        "details-level": "standard",
                     },
                 )
 
