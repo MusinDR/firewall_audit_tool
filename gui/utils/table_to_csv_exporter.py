@@ -16,15 +16,17 @@ class TableExporterCSV:
             writer = csv.writer(f)
 
             headers = [
-                self.table_widget.horizontalHeaderItem(i).text()
-                for i in range(column_count)
+                self.table_widget.horizontalHeaderItem(i).text() for i in range(column_count)
             ]
             writer.writerow(headers)
 
             for row in range(row_count):
                 row_data = [
-                    self.table_widget.item(row, col).text()
-                    if self.table_widget.item(row, col) else ""
+                    (
+                        self.table_widget.item(row, col).text()
+                        if self.table_widget.item(row, col)
+                        else ""
+                    )
                     for col in range(column_count)
                 ]
                 writer.writerow(row_data)

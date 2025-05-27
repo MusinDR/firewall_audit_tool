@@ -1,9 +1,11 @@
 # gui/utils/table_from_csv_loader.py
 
+import csv
+import os
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QTableWidget, QTableWidgetItem
-import os
-import csv
+
 
 def load_table_from_csv(table: QTableWidget, path: str, print_log=None):
     if not os.path.exists(path):

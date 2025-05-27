@@ -1,24 +1,32 @@
 # main_window.py
 
-
-import csv
-import os
-
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QComboBox, QDialog, QFileDialog, QHBoxLayout, QHeaderView, QLabel,
-    QMainWindow, QMessageBox, QPushButton, QSplitter, QTableWidget,
-    QTableWidgetItem, QTabWidget, QTextEdit, QVBoxLayout, QWidget
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QTableWidget,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
 
+from gui.audit.audit_settings_dialog import AuditSettingsDialog
+from gui.audit.audit_table import create_audit_table
+from gui.rules.rules_table import create_rules_table
+from gui.utils.table_from_csv_loader import load_table_from_csv
+from gui.utils.table_to_csv_exporter import TableExporterCSV
 from infrastructure.checkpoint_api_client import CheckpointClient
 from infrastructure.logger import logger
-from gui.audit.audit_settings_dialog import AuditSettingsDialog
 from services import AuditService, FetchService, PolicyService
-from gui.rules.rules_table import create_rules_table
-from gui.audit.audit_table import create_audit_table
-from gui.utils.table_to_csv_exporter import TableExporterCSV
-from gui.utils.table_from_csv_loader import load_table_from_csv
 
 
 class MainWindow(QMainWindow):
@@ -84,6 +92,8 @@ class MainWindow(QMainWindow):
         self.export_button.setEnabled(False)
 
         self.rules_table = create_rules_table()
+        self.rules_table.horizontalHeader().setStretchLastSection(True)
+        self.rules_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
         control_layout = QHBoxLayout()
         control_layout.addWidget(QLabel("Слой политики:"))
@@ -123,6 +133,8 @@ class MainWindow(QMainWindow):
         audit_controls.addWidget(self.export_audit_button)
 
         self.audit_table = create_audit_table()
+        self.audit_table.horizontalHeader().setStretchLastSection(True)
+        self.audit_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
         layout.addLayout(audit_controls)
         layout.addWidget(self.audit_table)
@@ -220,8 +232,9 @@ class MainWindow(QMainWindow):
             self.print_log(f"❌ Ошибка отображения: {e}")
             QMessageBox.critical(self, "Ошибка", str(e))
 
-
-    def export_table_to_csv(self, table_widget: QTableWidget, dialog_title: str = "Сохранить как CSV"):
+    def export_table_to_csv(
+        self, table_widget: QTableWidget, dialog_title: str = "Сохранить как CSV"
+    ):
         path, _ = QFileDialog.getSaveFileName(self, dialog_title, "", "CSV Files (*.csv)")
         if not path:
             return

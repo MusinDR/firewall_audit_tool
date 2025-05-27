@@ -1,8 +1,8 @@
 # services/audit_service.py
 
-from infrastructure.rule_auditor import RuleAuditor
 from infrastructure.audit_runner import export_findings_to_csv
 from infrastructure.json_store import load_all_data
+from infrastructure.rule_auditor import RuleAuditor
 from resolvers.object_resolver import ObjectResolver
 
 

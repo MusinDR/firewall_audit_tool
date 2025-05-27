@@ -1,7 +1,6 @@
 # infrastructure/policy_exporter_csv.py
 
 import csv
-import shutil
 
 from infrastructure.rule_formatter import RuleFormatter
 from resolvers.object_resolver import ObjectResolver
@@ -15,20 +14,31 @@ class PolicyExporterCSV:
     def export_to_csv(self, filepath: str, selected_layer: str = None):
         with open(filepath, mode="w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                "Layer", "Section", "Rule #", "Enabled", "Hits", "Name",
-                "Source", "Destination", "Services", "Action", "Time",
-                "Track", "Install On", "Comments"
-            ])
+            writer.writerow(
+                [
+                    "Layer",
+                    "Section",
+                    "Rule #",
+                    "Enabled",
+                    "Hits",
+                    "Name",
+                    "Source",
+                    "Destination",
+                    "Services",
+                    "Action",
+                    "Time",
+                    "Track",
+                    "Install On",
+                    "Comments",
+                ]
+            )
 
             layers = [selected_layer] if selected_layer else list(self.policies.keys())
             for layer in layers:
                 rules = self.policies.get(layer)
                 if not rules:
                     continue
-                self._process_rules(
-                    writer, rules, [layer], "", [0], ""
-                )
+                self._process_rules(writer, rules, [layer], "", [0], "")
 
     def _process_rules(self, writer, rules, layer_path, parent_prefix, rule_counter, section_name):
         for rule in rules:
@@ -40,7 +50,7 @@ class PolicyExporterCSV:
                     layer_path,
                     parent_prefix,
                     rule_counter,
-                    rule.get("name", "[Без имени]")
+                    rule.get("name", "[Без имени]"),
                 )
                 continue
 
@@ -59,10 +69,11 @@ class PolicyExporterCSV:
                         layer_path + [nested_layer_name],
                         f"{rule_number}.",
                         [0],
-                        section_name
+                        section_name,
                     )
                 else:
                     writer.writerow(
-                        [nested_layer_name or nested_uid, section_name, f"{rule_number}.x"] +
-                        ["[Ошибка: нет данных для inline-layer]"] + [""] * 10
+                        [nested_layer_name or nested_uid, section_name, f"{rule_number}.x"]
+                        + ["[Ошибка: нет данных для inline-layer]"]
+                        + [""] * 10
                     )

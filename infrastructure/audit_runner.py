@@ -3,8 +3,8 @@
 import csv
 from collections import defaultdict
 
+from infrastructure.json_store import load_all_data
 from infrastructure.rule_auditor import RuleAuditor
-from infrastructure.json_store import  load_all_data
 from resolvers.object_resolver import ObjectResolver
 
 SEVERITY_ORDER = {"Critical": 4, "High": 3, "Medium": 2, "Info": 1}

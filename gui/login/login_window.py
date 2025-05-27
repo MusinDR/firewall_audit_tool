@@ -4,11 +4,9 @@ import socket
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDialog,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -24,7 +22,7 @@ class LoginWindow(QDialog):
     def __init__(self, main_window_factory):
         super().__init__()
         self.setWindowTitle("Авторизация")
-        self.setFixedSize(320, 260)
+        self.setFixedSize(320, 360)
 
         self.server_input = QLineEdit()
         self.username_input = QLineEdit()
@@ -36,6 +34,7 @@ class LoginWindow(QDialog):
         self.toggle_password_checkbox.toggled.connect(self.toggle_password_visibility)
 
         self.login_button = QPushButton("Войти")
+        self.login_button.setFixedWidth(120)
         self.login_button.clicked.connect(self.handle_login)
 
         self.status_icon = QLabel("")
@@ -50,7 +49,9 @@ class LoginWindow(QDialog):
         layout.addWidget(self.password_input)
         layout.addWidget(self.toggle_password_checkbox)
 
-        layout.addWidget(self.login_button)
+        layout.addSpacing(12)
+        layout.addWidget(self.login_button, alignment=Qt.AlignmentFlag.AlignRight)
+        layout.addSpacing(6)
         layout.addWidget(self.status_icon)
 
         self.setLayout(layout)
